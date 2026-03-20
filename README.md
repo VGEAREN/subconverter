@@ -52,6 +52,46 @@ Notice:
 
 ---
 
+## Docker Compose 部署
+
+```bash
+# 克隆仓库（含 submodule）
+git clone --recurse-submodules https://github.com/VGEAREN/subconverter.git
+cd subconverter
+
+# 构建并启动
+docker compose up -d
+```
+
+`base/custom` 目录通过 git submodule 引用 [VGEAREN/Rules](https://github.com/VGEAREN/Rules) 仓库，包含自定义规则和配置文件（`pref.toml`）。该目录以 volume 形式挂载到容器中。
+
+### 环境变量
+
+在项目根目录创建 `.env` 文件或直接在 `docker-compose.yml` 中配置：
+
+| 变量名 | 说明 | 默认值 |
+| --- | --- | --- |
+| `API_ACCESS_TOKEN` | Web 接口访问令牌 | 空（不鉴权） |
+| `MANAGED_CONFIG_PREFIX` | 托管配置地址前缀（不含末尾 `/`） | `http://127.0.0.1:25500` |
+
+`.env` 文件示例：
+```env
+API_ACCESS_TOKEN=my_secure_token
+MANAGED_CONFIG_PREFIX=https://sub.example.com
+```
+
+### 可视化配置页面
+
+访问 `http://127.0.0.1:25500/custom/page` 可通过 Web 页面可视化配置订阅转换参数，保存后生成固定链接：
+
+```
+http://127.0.0.1:25500/custom?id=你的自定义ID
+```
+
+该链接输出与 `/sub` 接口一致，配置修改后链接不变，内容实时更新。
+
+---
+
 ## Quick Usage
 
 > Using default groups and rulesets configuration directly, without changing any settings

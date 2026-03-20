@@ -1,0 +1,3 @@
+[submodule "base/custom"]
+	path = base/custom
+	url = https://github.com/VGEAREN/Rules.git
