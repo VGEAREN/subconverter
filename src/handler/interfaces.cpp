@@ -1677,7 +1677,23 @@ std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
         }
     }
 
-    return subconverter(fakeReq, response);
+    std::string result = subconverter(fakeReq, response);
+
+    // Cache successful results, serve cache on failure
+    std::string cachePath = CUSTOM_DIR + id + ".cache";
+    if(response.status_code == 200 && !result.empty())
+    {
+        md(CUSTOM_DIR.c_str());
+        fileWrite(cachePath, result, true);
+    }
+    else if(fileExist(cachePath))
+    {
+        writeLog(0, "Custom config '" + id + "' fetch failed, serving cached result.", LOG_LEVEL_WARNING);
+        result = fileGet(cachePath);
+        response.status_code = 200;
+    }
+
+    return result;
 }
 
 std::string customSave(RESPONSE_CALLBACK_ARGS)

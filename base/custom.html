@@ -102,7 +102,7 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
     <div class="form-group">
       <label>订阅链接</label>
       <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
-        <textarea id="cfg-url" placeholder="每行一个订阅链接，多个链接会自动合并"></textarea>
+        <textarea id="cfg-url" placeholder="每行一个订阅链接，多个链接会自动合并" style="min-height:100px;flex-shrink:0;"></textarea>
         <div style="display:flex;gap:8px;align-items:center;">
           <button class="btn btn-outline" onclick="testUrls()" id="btn-test">测试订阅链接</button>
           <span id="test-status" style="font-size:13px;color:var(--text-secondary);"></span>
