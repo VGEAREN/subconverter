@@ -5,7 +5,7 @@ services:
     ports:
       - "25500:25500"
     volumes:
-      - ./base/custom:/base/custom
+      - ./base/custom:/base
     environment:
       - API_ACCESS_TOKEN=${API_ACCESS_TOKEN:-}
       - MANAGED_CONFIG_PREFIX=${MANAGED_CONFIG_PREFIX:-http://127.0.0.1:25500}

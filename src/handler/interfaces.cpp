@@ -1605,7 +1605,10 @@ static std::string generateId()
 std::string customPage(RESPONSE_CALLBACK_ARGS)
 {
     response.content_type = "text/html; charset=utf-8";
-    return fileGet("custom.html");
+    std::string content = fileGet("custom.html");
+    if(content.empty())
+        content = fileGet("/custom.html");
+    return content;
 }
 
 std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
