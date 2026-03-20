@@ -29,6 +29,7 @@
 #include "utils/urlencode.h"
 #include "interfaces.h"
 #include "multithread.h"
+#include "parser/subparser.h"
 #include "settings.h"
 #include "upload.h"
 #include "webget.h"
@@ -1794,4 +1795,108 @@ std::string customDelete(RESPONSE_CALLBACK_ARGS)
 
     std::remove(path.c_str());
     return R"({"ok":true})";
+}
+
+std::string customTestUrl(RESPONSE_CALLBACK_ARGS)
+{
+    response.content_type = "application/json";
+    std::string url = getUrlArg(request.argument, "url");
+    if(url.empty())
+    {
+        response.status_code = 400;
+        return R"({"ok":false,"error":"Missing url parameter"})";
+    }
+
+    std::string proxy = parseProxy(global.proxySubscription);
+    std::string content = webGet(url, proxy);
+
+    if(content.empty())
+        return R"({"ok":false,"error":"Failed to fetch URL or empty response","nodes":0})";
+
+    // Try base64 decode
+    std::string decoded = base64Decode(content, true);
+
+    // Check if decoded content contains known proxy protocol prefixes
+    int nodeCount = 0;
+    const std::string prefixes[] = {"ss://", "ssr://", "vmess://", "vmess1://", "vless://", "trojan://", "hysteria2://", "hy2://", "socks://", "http://", "https://", "Netch://"};
+    bool isBase64Sub = false;
+
+    // Check decoded content for proxy links
+    if(!decoded.empty())
+    {
+        std::stringstream ss(decoded);
+        std::string line;
+        while(std::getline(ss, line))
+        {
+            line = trim(line);
+            if(line.empty()) continue;
+            for(const auto &prefix : prefixes)
+            {
+                if(startsWith(line, prefix))
+                {
+                    nodeCount++;
+                    isBase64Sub = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    // If not base64, check raw content (could be Clash YAML, JSON config, SSD, etc.)
+    if(!isBase64Sub)
+    {
+        bool isClash = regFind(content, "\"?(Proxy|proxies)\"?:");
+        bool isSSD = startsWith(content, "ssd://");
+        bool isSingBox = strFind(content, "\"outbounds\"");
+
+        if(isClash || isSSD || isSingBox)
+        {
+            // Parse as config to count nodes
+            std::vector<Proxy> nodes;
+            explodeConfContent(content, nodes);
+            nodeCount = nodes.size();
+            if(nodeCount > 0)
+            {
+                nlohmann::json result;
+                result["ok"] = true;
+                result["nodes"] = nodeCount;
+                result["format"] = isClash ? "clash" : (isSSD ? "ssd" : "singbox");
+                return result.dump();
+            }
+        }
+
+        // Also try raw content line by line for plain-text proxy links
+        std::stringstream ss(content);
+        std::string line;
+        while(std::getline(ss, line))
+        {
+            line = trim(line);
+            if(line.empty()) continue;
+            for(const auto &prefix : prefixes)
+            {
+                if(startsWith(line, prefix))
+                {
+                    nodeCount++;
+                    break;
+                }
+            }
+        }
+
+        if(nodeCount > 0)
+        {
+            nlohmann::json result;
+            result["ok"] = true;
+            result["nodes"] = nodeCount;
+            result["format"] = "plain";
+            return result.dump();
+        }
+
+        return R"({"ok":false,"error":"No valid proxy nodes found","nodes":0})";
+    }
+
+    nlohmann::json result;
+    result["ok"] = true;
+    result["nodes"] = nodeCount;
+    result["format"] = "base64";
+    return result.dump();
 }

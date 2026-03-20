@@ -54,6 +54,11 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
 .toast.success { background: var(--success); }
 .toast.error { background: var(--danger); }
 .empty { text-align: center; color: var(--text-secondary); padding: 20px; font-size: 14px; }
+.test-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 4px; font-size: 13px; margin-bottom: 4px; font-family: monospace; word-break: break-all; }
+.test-item.ok { background: #eafaf1; color: var(--success); }
+.test-item.fail { background: #fdedec; color: var(--danger); }
+.test-item.loading { background: #f0f4ff; color: var(--primary); }
+.test-item .badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; background: rgba(0,0,0,0.08); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -96,7 +101,14 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
 
     <div class="form-group">
       <label>订阅链接</label>
-      <textarea id="cfg-url" placeholder="每行一个订阅链接，多个链接会自动合并"></textarea>
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+        <textarea id="cfg-url" placeholder="每行一个订阅链接，多个链接会自动合并"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-outline" onclick="testUrls()" id="btn-test">测试订阅链接</button>
+          <span id="test-status" style="font-size:13px;color:var(--text-secondary);"></span>
+        </div>
+        <div id="test-results"></div>
+      </div>
     </div>
 
     <div class="form-group">
@@ -401,6 +413,48 @@ async function deleteConfig(id) {
   } catch(e) {
     toast('请求失败', 'error');
   }
+}
+
+async function testUrls() {
+  const text = document.getElementById('cfg-url').value.trim();
+  if (!text) { toast('请先输入订阅链接', 'error'); return; }
+  const urls = text.split('\n').map(s => s.trim()).filter(Boolean);
+  const container = document.getElementById('test-results');
+  const btn = document.getElementById('btn-test');
+  const status = document.getElementById('test-status');
+  btn.disabled = true;
+  btn.textContent = '测试中...';
+  status.textContent = '';
+  container.innerHTML = urls.map((url, i) =>
+    `<div class="test-item loading" id="test-${i}">&#8987; ${esc(url.length > 60 ? url.substring(0, 60) + '...' : url)}</div>`
+  ).join('');
+
+  let okCount = 0, failCount = 0;
+  const promises = urls.map(async (url, i) => {
+    const el = document.getElementById('test-' + i);
+    try {
+      const resp = await fetch(BASE + '/api/custom/test?url=' + encodeURIComponent(url));
+      const data = await resp.json();
+      if (data.ok) {
+        el.className = 'test-item ok';
+        el.innerHTML = `&#10004; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${data.nodes} 个节点</span> <span class="badge">${data.format}</span>`;
+        okCount++;
+      } else {
+        el.className = 'test-item fail';
+        el.innerHTML = `&#10008; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${data.error || '无有效节点'}</span>`;
+        failCount++;
+      }
+    } catch(e) {
+      el.className = 'test-item fail';
+      el.innerHTML = `&#10008; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">请求失败</span>`;
+      failCount++;
+    }
+  });
+  await Promise.all(promises);
+  btn.disabled = false;
+  btn.textContent = '测试订阅链接';
+  status.textContent = `测试完成: ${okCount} 成功, ${failCount} 失败`;
+  status.style.color = failCount > 0 ? 'var(--danger)' : 'var(--success)';
 }
 
 function copyLink(link) {
