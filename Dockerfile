@@ -46,7 +46,7 @@ RUN apk add --no-cache pcre2 libcurl yaml-cpp tzdata && \
     echo "Asia/Shanghai" > /etc/timezone
 
 COPY --from=builder /src/subconverter/subconverter /usr/bin/
-COPY --from=builder /src/subconverter/base/custom.html /custom.html
+COPY --from=builder /src/subconverter/base /base/
 
 WORKDIR /base
 EXPOSE 25500/tcp

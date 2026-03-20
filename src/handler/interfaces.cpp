@@ -1580,7 +1580,7 @@ std::string renderTemplate(RESPONSE_CALLBACK_ARGS)
 
 // ============ Custom Config Management ============
 
-static const std::string CUSTOM_DIR = "savedconfigs/";
+static const std::string CUSTOM_DIR = "custom/savedconfigs/";
 
 static bool isValidId(const std::string &id)
 {
@@ -1605,10 +1605,7 @@ static std::string generateId()
 std::string customPage(RESPONSE_CALLBACK_ARGS)
 {
     response.content_type = "text/html; charset=utf-8";
-    std::string content = fileGet("custom.html");
-    if(content.empty())
-        content = fileGet("/custom.html");
-    return content;
+    return fileGet("custom.html");
 }
 
 std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
