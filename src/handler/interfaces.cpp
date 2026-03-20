@@ -2,8 +2,12 @@
 #include <string>
 #include <mutex>
 #include <numeric>
+#include <random>
+#include <chrono>
+#include <cstdio>
 
 #include <yaml-cpp/yaml.h>
+#include <nlohmann/json.hpp>
 
 #include "config/binding.h"
 #include "generator/config/nodemanip.h"
@@ -1571,4 +1575,223 @@ std::string renderTemplate(RESPONSE_CALLBACK_ARGS)
         writeLog(0, "Render completed.", LOG_LEVEL_INFO);
 
     return output_content;
+}
+
+// ============ Custom Config Management ============
+
+static const std::string CUSTOM_DIR = "custom/";
+
+static bool isValidId(const std::string &id)
+{
+    if(id.empty()) return false;
+    for(char c : id)
+    {
+        if(!isalnum(c) && c != '-' && c != '_')
+            return false;
+    }
+    return true;
+}
+
+static std::string generateId()
+{
+    static std::mt19937 gen(static_cast<unsigned>(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::uniform_int_distribution<uint32_t> dis(0, 0xFFFFFFFF);
+    char buf[9];
+    snprintf(buf, sizeof(buf), "%08x", dis(gen));
+    return buf;
+}
+
+std::string customPage(RESPONSE_CALLBACK_ARGS)
+{
+    response.content_type = "text/html; charset=utf-8";
+    return fileGet("custom.html");
+}
+
+std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
+{
+    std::string id = getUrlArg(request.argument, "id");
+    if(id.empty())
+    {
+        response.status_code = 400;
+        return "Missing id parameter";
+    }
+
+    if(!isValidId(id))
+    {
+        response.status_code = 400;
+        return "Invalid id";
+    }
+
+    std::string path = CUSTOM_DIR + id + ".json";
+    if(!fileExist(path))
+    {
+        response.status_code = 404;
+        return "Config not found";
+    }
+
+    std::string content = fileGet(path);
+    nlohmann::json cfg;
+    try { cfg = nlohmann::json::parse(content); }
+    catch(...)
+    {
+        response.status_code = 500;
+        return "Invalid config data";
+    }
+
+    // Build request argument from saved config
+    Request fakeReq;
+    fakeReq.method = request.method;
+    fakeReq.headers = request.headers;
+
+    const std::vector<std::string> paramKeys = {
+        "target", "ver", "url", "config", "group", "upload_path",
+        "include", "exclude", "groups", "ruleset", "dev_id", "filename",
+        "interval", "strict", "rename", "filter_script",
+        "upload", "emoji", "add_emoji", "remove_emoji",
+        "append_type", "tfo", "udp", "list", "sort", "sort_script",
+        "script", "insert", "scv", "fdn", "expand", "append_info",
+        "prepend", "classic", "tls13", "new_name", "token"
+    };
+
+    for(const auto &key : paramKeys)
+    {
+        if(cfg.contains(key) && cfg[key].is_string())
+        {
+            std::string val = cfg[key].get<std::string>();
+            if(!val.empty())
+                fakeReq.argument.emplace(key, val);
+        }
+    }
+
+    // URL query params can override saved config
+    for(auto &[key, val] : request.argument)
+    {
+        if(key != "id")
+        {
+            fakeReq.argument.erase(key);
+            fakeReq.argument.emplace(key, val);
+        }
+    }
+
+    return subconverter(fakeReq, response);
+}
+
+std::string customSave(RESPONSE_CALLBACK_ARGS)
+{
+    response.content_type = "application/json";
+
+    if(request.postdata.empty())
+    {
+        response.status_code = 400;
+        return R"({"ok":false,"error":"Empty request body"})";
+    }
+
+    nlohmann::json cfg;
+    try { cfg = nlohmann::json::parse(request.postdata); }
+    catch(...)
+    {
+        response.status_code = 400;
+        return R"({"ok":false,"error":"Invalid JSON"})";
+    }
+
+    if(!cfg.contains("target") || !cfg.contains("url"))
+    {
+        response.status_code = 400;
+        return R"({"ok":false,"error":"Missing target or url"})";
+    }
+
+    // Use existing id or generate new one
+    std::string id;
+    if(cfg.contains("id") && cfg["id"].is_string() && !cfg["id"].get<std::string>().empty())
+    {
+        id = cfg["id"].get<std::string>();
+        if(!isValidId(id))
+        {
+            response.status_code = 400;
+            return R"({"ok":false,"error":"Invalid id, only alphanumeric, - and _ allowed"})";
+        }
+    }
+    else
+    {
+        id = generateId();
+    }
+
+    cfg["id"] = id;
+
+    md(CUSTOM_DIR.c_str());
+    std::string path = CUSTOM_DIR + id + ".json";
+    fileWrite(path, cfg.dump(2), true);
+
+    return R"({"ok":true,"id":")" + id + R"("})";
+}
+
+std::string customList(RESPONSE_CALLBACK_ARGS)
+{
+    response.content_type = "application/json";
+    nlohmann::json arr = nlohmann::json::array();
+
+    md(CUSTOM_DIR.c_str());
+    operateFiles(CUSTOM_DIR, [&](const char *name) -> bool {
+        std::string fname(name);
+        if(fname.size() > 5 && fname.substr(fname.size() - 5) == ".json")
+        {
+            std::string content = fileGet(CUSTOM_DIR + fname);
+            try
+            {
+                nlohmann::json cfg = nlohmann::json::parse(content);
+                nlohmann::json item;
+                item["id"] = cfg.value("id", fname.substr(0, fname.size() - 5));
+                item["name"] = cfg.value("name", "");
+                item["target"] = cfg.value("target", "");
+                item["ver"] = cfg.value("ver", "");
+                arr.push_back(item);
+            }
+            catch(...) {}
+        }
+        return false;
+    });
+
+    return arr.dump();
+}
+
+std::string customGet(RESPONSE_CALLBACK_ARGS)
+{
+    response.content_type = "application/json";
+    std::string id = getUrlArg(request.argument, "id");
+
+    if(!isValidId(id))
+    {
+        response.status_code = 400;
+        return R"({"error":"Invalid id"})";
+    }
+
+    std::string path = CUSTOM_DIR + id + ".json";
+    if(!fileExist(path))
+    {
+        response.status_code = 404;
+        return R"({"error":"Not found"})";
+    }
+    return fileGet(path);
+}
+
+std::string customDelete(RESPONSE_CALLBACK_ARGS)
+{
+    response.content_type = "application/json";
+    std::string id = getUrlArg(request.argument, "id");
+
+    if(!isValidId(id))
+    {
+        response.status_code = 400;
+        return R"({"ok":false,"error":"Invalid id"})";
+    }
+
+    std::string path = CUSTOM_DIR + id + ".json";
+    if(!fileExist(path))
+    {
+        response.status_code = 404;
+        return R"({"ok":false,"error":"Not found"})";
+    }
+
+    std::remove(path.c_str());
+    return R"({"ok":true})";
 }

@@ -29,4 +29,11 @@ std::string template_webGet(inja::Arguments &args);
 std::string jinja2_webGet(const std::string &url);
 std::string parseHostname(inja::Arguments &args);
 
+std::string customSubconverter(RESPONSE_CALLBACK_ARGS);
+std::string customPage(RESPONSE_CALLBACK_ARGS);
+std::string customSave(RESPONSE_CALLBACK_ARGS);
+std::string customList(RESPONSE_CALLBACK_ARGS);
+std::string customGet(RESPONSE_CALLBACK_ARGS);
+std::string customDelete(RESPONSE_CALLBACK_ARGS);
+
 #endif // INTERFACES_H_INCLUDED

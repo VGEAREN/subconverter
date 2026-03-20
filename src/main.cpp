@@ -274,6 +274,13 @@ int main(int argc, char *argv[])
 
     webServer.append_response("GET", "/render", "text/plain;charset=utf-8", renderTemplate);
 
+    webServer.append_response("GET", "/custom", "text/plain;charset=utf-8", customSubconverter);
+    webServer.append_response("GET", "/custom/page", "text/html;charset=utf-8", customPage);
+    webServer.append_response("POST", "/api/custom/save", "application/json", customSave);
+    webServer.append_response("GET", "/api/custom/list", "application/json", customList);
+    webServer.append_response("GET", "/api/custom/get", "application/json", customGet);
+    webServer.append_response("DELETE", "/api/custom/delete", "application/json", customDelete);
+
     if(!global.APIMode)
     {
         webServer.append_response("GET", "/get", "text/plain;charset=utf-8", [](RESPONSE_CALLBACK_ARGS) -> std::string

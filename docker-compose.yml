@@ -1,0 +1,12 @@
+services:
+  subconverter:
+    build: .
+    container_name: subconverter
+    ports:
+      - "25500:25500"
+    volumes:
+      - custom-data:/base/custom
+    restart: always
+
+volumes:
+  custom-data:

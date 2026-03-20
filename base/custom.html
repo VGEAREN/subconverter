@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SubConverter - 订阅转换配置</title>
+<style>
+:root {
+  --bg: #f5f7fa;
+  --card: #fff;
+  --border: #e0e4e8;
+  --primary: #4f8cff;
+  --primary-hover: #3a6fd8;
+  --danger: #e74c3c;
+  --text: #2c3e50;
+  --text-secondary: #7f8c8d;
+  --success: #27ae60;
+  --radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 20px; }
+.container { max-width: 900px; margin: 0 auto; }
+h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
+.card { background: var(--card); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.card h2 { font-size: 16px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.form-group { margin-bottom: 14px; display: flex; align-items: flex-start; gap: 12px; }
+.form-group label { min-width: 100px; padding-top: 6px; font-size: 14px; color: var(--text-secondary); text-align: right; flex-shrink: 0; }
+.form-group input[type="text"], .form-group input[type="number"], .form-group select, .form-group textarea {
+  flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; transition: border-color .2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); }
+.form-group textarea { resize: vertical; min-height: 70px; font-family: monospace; }
+.toggle-row { display: flex; flex-wrap: wrap; gap: 16px; flex: 1; padding-top: 4px; }
+.toggle-item { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.toggle-item select { padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
+.btn-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.btn { padding: 8px 20px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all .2s; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { opacity: .85; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+.config-list { list-style: none; }
+.config-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; }
+.config-item .name { font-weight: 500; font-size: 14px; }
+.config-item .meta { font-size: 12px; color: var(--text-secondary); }
+.config-item .actions { display: flex; gap: 8px; }
+.config-item .actions .btn { padding: 4px 12px; font-size: 12px; }
+.link-box { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.link-box input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: monospace; background: #f8f9fa; }
+.toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 6px; color: #fff; font-size: 14px; z-index: 999; opacity: 0; transition: opacity .3s; }
+.toast.show { opacity: 1; }
+.toast.success { background: var(--success); }
+.toast.error { background: var(--danger); }
+.empty { text-align: center; color: var(--text-secondary); padding: 20px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>SubConverter 订阅转换配置</h1>
+
+  <div class="card">
+    <h2 id="form-title">新建配置</h2>
+    <div class="form-group">
+      <label>配置 ID</label>
+      <input type="text" id="cfg-id" placeholder="自定义 ID（英文/数字），保存后不可修改">
+    </div>
+
+    <div class="form-group">
+      <label>配置名称</label>
+      <input type="text" id="cfg-name" placeholder="为这个配置起个名字">
+    </div>
+
+    <div class="form-group">
+      <label>目标格式</label>
+      <select id="cfg-target">
+        <option value="clash">Clash</option>
+        <option value="clashr">ClashR</option>
+        <option value="surge&ver=4">Surge 4</option>
+        <option value="surge&ver=3">Surge 3</option>
+        <option value="surge&ver=2">Surge 2</option>
+        <option value="quanx">Quantumult X</option>
+        <option value="quan">Quantumult</option>
+        <option value="loon">Loon</option>
+        <option value="surfboard">Surfboard</option>
+        <option value="singbox">sing-box</option>
+        <option value="ss">SS (SIP002)</option>
+        <option value="ssr">SSR</option>
+        <option value="sssub">SS Android</option>
+        <option value="v2ray">V2Ray</option>
+        <option value="trojan">Trojan</option>
+        <option value="mixed">Mixed</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>订阅链接</label>
+      <textarea id="cfg-url" placeholder="每行一个订阅链接，多个链接会自动合并"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>远程配置</label>
+      <select id="cfg-config-select" onchange="onConfigSelect()">
+        <option value="">不使用</option>
+        <option value="config/ACL4SSR_Online.ini">ACL4SSR_Online</option>
+        <option value="config/ACL4SSR_Online_Full.ini">ACL4SSR_Online_Full</option>
+        <option value="config/ACL4SSR_Online_Full_AdblockPlus.ini">ACL4SSR_Online_Full_AdblockPlus</option>
+        <option value="config/ACL4SSR_Online_Full_Google.ini">ACL4SSR_Online_Full_Google</option>
+        <option value="config/ACL4SSR_Online_Full_MultiMode.ini">ACL4SSR_Online_Full_MultiMode</option>
+        <option value="config/ACL4SSR_Online_Full_Netflix.ini">ACL4SSR_Online_Full_Netflix</option>
+        <option value="config/ACL4SSR_Online_Full_NoAuto.ini">ACL4SSR_Online_Full_NoAuto</option>
+        <option value="config/ACL4SSR_Online_Mini.ini">ACL4SSR_Online_Mini</option>
+        <option value="config/ACL4SSR_Online_Mini_AdblockPlus.ini">ACL4SSR_Online_Mini_AdblockPlus</option>
+        <option value="config/ACL4SSR_Online_Mini_Fallback.ini">ACL4SSR_Online_Mini_Fallback</option>
+        <option value="config/ACL4SSR_Online_Mini_MultiCountry.ini">ACL4SSR_Online_Mini_MultiCountry</option>
+        <option value="config/ACL4SSR_Online_Mini_MultiMode.ini">ACL4SSR_Online_Mini_MultiMode</option>
+        <option value="config/ACL4SSR_Online_Mini_NoAuto.ini">ACL4SSR_Online_Mini_NoAuto</option>
+        <option value="config/ACL4SSR_Online_MultiCountry.ini">ACL4SSR_Online_MultiCountry</option>
+        <option value="config/ACL4SSR_Online_NoAuto.ini">ACL4SSR_Online_NoAuto</option>
+        <option value="config/ACL4SSR_Online_NoReject.ini">ACL4SSR_Online_NoReject</option>
+        <option value="config/ACL4SSR_Online_AdblockPlus.ini">ACL4SSR_Online_AdblockPlus</option>
+        <option value="__custom__">自定义 URL...</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="custom-config-row" style="display:none;">
+      <label>自定义配置</label>
+      <input type="text" id="cfg-config" placeholder="远程配置文件 URL">
+    </div>
+
+    <div class="form-group">
+      <label>包含节点</label>
+      <input type="text" id="cfg-include" placeholder="正则表达式，如 港|HK|Hong">
+    </div>
+
+    <div class="form-group">
+      <label>排除节点</label>
+      <input type="text" id="cfg-exclude" placeholder="正则表达式，如 到期|剩余|流量">
+    </div>
+
+    <div class="form-group">
+      <label>节点重命名</label>
+      <input type="text" id="cfg-rename" placeholder="格式: 旧名@新名 多个用 ` 分隔">
+    </div>
+
+    <div class="form-group">
+      <label>输出文件名</label>
+      <input type="text" id="cfg-filename" placeholder="如 config.yaml">
+    </div>
+
+    <div class="form-group">
+      <label>更新间隔</label>
+      <input type="number" id="cfg-interval" placeholder="秒，如 86400">
+    </div>
+
+    <div class="form-group">
+      <label>开关选项</label>
+      <div class="toggle-row">
+        <div class="toggle-item">
+          <span>Emoji</span>
+          <select id="cfg-emoji"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
+        </div>
+        <div class="toggle-item">
+          <span>UDP</span>
+          <select id="cfg-udp"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
+        </div>
+        <div class="toggle-item">
+          <span>TFO</span>
+          <select id="cfg-tfo"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
+        </div>
+        <div class="toggle-item">
+          <span>排序</span>
+          <select id="cfg-sort"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
+        </div>
+        <div class="toggle-item">
+          <span>跳过证书验证</span>
+          <select id="cfg-scv"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
+        </div>
+        <div class="toggle-item">
+          <span>过滤废弃节点</span>
+          <select id="cfg-fdn"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
+        </div>
+        <div class="toggle-item">
+          <span>TLS 1.3</span>
+          <select id="cfg-tls13"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
+        </div>
+        <div class="toggle-item">
+          <span>追加节点类型</span>
+          <select id="cfg-append_type"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
+        </div>
+        <div class="toggle-item">
+          <span>展开规则集</span>
+          <select id="cfg-expand"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="resetForm()">重置</button>
+      <button class="btn btn-primary" onclick="saveConfig()">保存配置</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>已保存配置</h2>
+    <ul class="config-list" id="config-list">
+      <li class="empty">暂无保存的配置</li>
+    </ul>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE = window.location.origin;
+
+const FIELDS = [
+  {id: 'cfg-id', key: 'id'},
+  {id: 'cfg-name', key: 'name'},
+  {id: 'cfg-target', key: 'target'},
+  {id: 'cfg-url', key: 'url', type: 'textarea'},
+  {id: 'cfg-config', key: 'config'},
+  {id: 'cfg-include', key: 'include'},
+  {id: 'cfg-exclude', key: 'exclude'},
+  {id: 'cfg-rename', key: 'rename'},
+  {id: 'cfg-filename', key: 'filename'},
+  {id: 'cfg-interval', key: 'interval'},
+  {id: 'cfg-emoji', key: 'emoji'},
+  {id: 'cfg-udp', key: 'udp'},
+  {id: 'cfg-tfo', key: 'tfo'},
+  {id: 'cfg-sort', key: 'sort'},
+  {id: 'cfg-scv', key: 'scv'},
+  {id: 'cfg-fdn', key: 'fdn'},
+  {id: 'cfg-tls13', key: 'tls13'},
+  {id: 'cfg-append_type', key: 'append_type'},
+  {id: 'cfg-expand', key: 'expand'},
+];
+
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => el.className = 'toast', 2500);
+}
+
+function onConfigSelect() {
+  const sel = document.getElementById('cfg-config-select');
+  const row = document.getElementById('custom-config-row');
+  if (sel.value === '__custom__') {
+    row.style.display = 'flex';
+    document.getElementById('cfg-config').value = '';
+  } else {
+    row.style.display = 'none';
+    document.getElementById('cfg-config').value = sel.value;
+  }
+}
+
+function getFormData() {
+  const data = {};
+  FIELDS.forEach(f => {
+    const el = document.getElementById(f.id);
+    const val = el.value.trim();
+    if (val) data[f.key] = val;
+  });
+  // Handle multi-line URLs: join with |
+  if (data.url) {
+    data.url = data.url.split('\n').map(s => s.trim()).filter(Boolean).join('|');
+  }
+  // Handle target with ver (e.g. "surge&ver=4")
+  if (data.target && data.target.includes('&ver=')) {
+    const parts = data.target.split('&ver=');
+    data.target = parts[0];
+    data.ver = parts[1];
+  }
+  return data;
+}
+
+function setFormData(data) {
+  resetForm();
+  let target = data.target || 'clash';
+  if (data.ver) target += '&ver=' + data.ver;
+  document.getElementById('cfg-target').value = target;
+
+  FIELDS.forEach(f => {
+    if (f.key === 'target') return;
+    const el = document.getElementById(f.id);
+    const val = data[f.key] || '';
+    if (f.key === 'url') {
+      el.value = val.split('|').join('\n');
+    } else {
+      el.value = val;
+    }
+  });
+
+  // Sync config select dropdown
+  const cfgVal = data.config || '';
+  const sel = document.getElementById('cfg-config-select');
+  const opts = Array.from(sel.options).map(o => o.value);
+  if (cfgVal === '' || opts.includes(cfgVal)) {
+    sel.value = cfgVal;
+    document.getElementById('custom-config-row').style.display = 'none';
+  } else {
+    sel.value = '__custom__';
+    document.getElementById('custom-config-row').style.display = 'flex';
+  }
+}
+
+function resetForm() {
+  document.getElementById('form-title').textContent = '新建配置';
+  FIELDS.forEach(f => document.getElementById(f.id).value = '');
+  document.getElementById('cfg-id').readOnly = false;
+  document.getElementById('cfg-target').value = 'clash';
+  document.getElementById('cfg-config-select').value = '';
+  document.getElementById('custom-config-row').style.display = 'none';
+}
+
+async function saveConfig() {
+  const data = getFormData();
+  if (!data.id) { toast('请输入配置 ID', 'error'); return; }
+  if (!/^[a-zA-Z0-9_-]+$/.test(data.id)) { toast('ID 只能包含英文、数字、下划线和短横线', 'error'); return; }
+  if (!data.url) { toast('请输入订阅链接', 'error'); return; }
+  if (!data.target) { toast('请选择目标格式', 'error'); return; }
+
+  try {
+    const resp = await fetch(BASE + '/api/custom/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    const result = await resp.json();
+    if (result.ok) {
+      toast('保存成功', 'success');
+      resetForm();
+      loadList();
+    } else {
+      toast(result.error || '保存失败', 'error');
+    }
+  } catch(e) {
+    toast('请求失败: ' + e.message, 'error');
+  }
+}
+
+async function loadList() {
+  try {
+    const resp = await fetch(BASE + '/api/custom/list');
+    const list = await resp.json();
+    const ul = document.getElementById('config-list');
+    if (!list.length) {
+      ul.innerHTML = '<li class="empty">暂无保存的配置</li>';
+      return;
+    }
+    ul.innerHTML = list.map(item => {
+      const link = BASE + '/custom?id=' + item.id;
+      const targetLabel = item.target + (item.ver ? ' v' + item.ver : '');
+      return `<li class="config-item">
+        <div>
+          <div class="name">${esc(item.name || item.id)}</div>
+          <div class="meta">目标: ${esc(targetLabel)}</div>
+          <div class="link-box">
+            <input type="text" value="${esc(link)}" readonly onclick="this.select()">
+            <button class="btn btn-outline" onclick="copyLink('${esc(link)}')">复制</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-outline" onclick="editConfig('${item.id}')">编辑</button>
+          <button class="btn btn-danger" onclick="deleteConfig('${item.id}')">删除</button>
+        </div>
+      </li>`;
+    }).join('');
+  } catch(e) {
+    toast('加载列表失败', 'error');
+  }
+}
+
+async function editConfig(id) {
+  try {
+    const resp = await fetch(BASE + '/api/custom/get?id=' + id);
+    const data = await resp.json();
+    if (data.error) { toast(data.error, 'error'); return; }
+    setFormData(data);
+    document.getElementById('cfg-id').readOnly = true;
+    document.getElementById('form-title').textContent = '编辑配置: ' + (data.name || id);
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  } catch(e) {
+    toast('加载配置失败', 'error');
+  }
+}
+
+async function deleteConfig(id) {
+  if (!confirm('确定要删除这个配置吗？')) return;
+  try {
+    const resp = await fetch(BASE + '/api/custom/delete?id=' + id, {method: 'DELETE'});
+    const result = await resp.json();
+    if (result.ok) {
+      toast('已删除', 'success');
+      loadList();
+    } else {
+      toast(result.error || '删除失败', 'error');
+    }
+  } catch(e) {
+    toast('请求失败', 'error');
+  }
+}
+
+function copyLink(link) {
+  navigator.clipboard.writeText(link).then(() => toast('已复制到剪贴板', 'success')).catch(() => toast('复制失败', 'error'));
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+loadList();
+</script>
+</body>
+</html>
