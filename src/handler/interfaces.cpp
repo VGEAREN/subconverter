@@ -5,6 +5,7 @@
 #include <random>
 #include <chrono>
 #include <cstdio>
+#include <curl/curl.h>
 
 #include <yaml-cpp/yaml.h>
 #include <nlohmann/json.hpp>
@@ -1674,9 +1675,34 @@ std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
         }
     }
 
+    // Replace remote URLs with cached local subscription files
+    auto urlIt = fakeReq.argument.find("url");
+    if(urlIt != fakeReq.argument.end())
+    {
+        string_array urls = split(urlIt->second, "|");
+        string_array localUrls;
+        for(const auto &url : urls)
+        {
+            std::string urlHash = getMD5(trim(url));
+            std::string cachePath = CUSTOM_DIR + "sub_" + urlHash + ".txt";
+            if(fileExist(cachePath))
+                localUrls.emplace_back(cachePath);
+            else
+                localUrls.emplace_back(url); // fallback to remote if no cache
+        }
+        fakeReq.argument.erase("url");
+        std::string joined;
+        for(size_t i = 0; i < localUrls.size(); i++)
+        {
+            if(i > 0) joined += "|";
+            joined += localUrls[i];
+        }
+        fakeReq.argument.emplace("url", joined);
+    }
+
     std::string result = subconverter(fakeReq, response);
 
-    // Cache successful results, serve cache on failure
+    // Cache successful output, serve cache on failure
     std::string cachePath = CUSTOM_DIR + id + ".cache";
     if(response.status_code == 200 && !result.empty())
     {
@@ -1685,7 +1711,7 @@ std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
     }
     else if(fileExist(cachePath))
     {
-        writeLog(0, "Custom config '" + id + "' fetch failed, serving cached result.", LOG_LEVEL_WARNING);
+        writeLog(0, "Custom config '" + id + "' conversion failed, serving cached result.", LOG_LEVEL_WARNING);
         result = fileGet(cachePath);
         response.status_code = 200;
     }
@@ -1813,106 +1839,100 @@ std::string customDelete(RESPONSE_CALLBACK_ARGS)
     return R"({"ok":true})";
 }
 
+// Fetch URL with clean curl (no SubConverter headers) to avoid being blocked
+static std::string cleanFetch(const std::string &url)
+{
+    CURL *curl = curl_easy_init();
+    if(!curl) return "";
+
+    std::string content;
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36");
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 10L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char *ptr, size_t size, size_t nmemb, void *userdata) -> size_t {
+        static_cast<std::string*>(userdata)->append(ptr, size * nmemb);
+        return size * nmemb;
+    });
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &content);
+
+    CURLcode res = curl_easy_perform(curl);
+    long http_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+    curl_easy_cleanup(curl);
+
+    if(res != CURLE_OK || http_code != 200)
+        return "";
+    return content;
+}
+
+static int countNodes(const std::string &content)
+{
+    const std::string prefixes[] = {"ss://", "ssr://", "vmess://", "vmess1://", "vless://", "trojan://", "hysteria2://", "hy2://", "socks://", "Netch://"};
+    int count = 0;
+
+    // Try base64 decode first
+    std::string decoded = base64Decode(content, true);
+    const std::string &text = decoded.empty() ? content : decoded;
+
+    std::stringstream ss(text);
+    std::string line;
+    while(std::getline(ss, line))
+    {
+        line = trim(line);
+        if(line.empty()) continue;
+        for(const auto &prefix : prefixes)
+        {
+            if(startsWith(line, prefix))
+            {
+                count++;
+                break;
+            }
+        }
+    }
+
+    // If no protocol links found, try as Clash/SSD/SingBox config
+    if(count == 0)
+    {
+        std::vector<Proxy> nodes;
+        explodeConfContent(content, nodes);
+        count = nodes.size();
+    }
+
+    return count;
+}
+
 std::string customTestUrl(RESPONSE_CALLBACK_ARGS)
 {
     response.content_type = "application/json";
     std::string url = getUrlArg(request.argument, "url");
+    std::string id = getUrlArg(request.argument, "id");
     if(url.empty())
     {
         response.status_code = 400;
         return R"({"ok":false,"error":"Missing url parameter"})";
     }
 
-    std::string proxy = parseProxy(global.proxySubscription);
-    std::string content = webGet(url, proxy);
+    std::string content = cleanFetch(url);
 
     if(content.empty())
         return R"({"ok":false,"error":"Failed to fetch URL or empty response","nodes":0})";
 
-    // Try base64 decode
-    std::string decoded = base64Decode(content, true);
-
-    // Check if decoded content contains known proxy protocol prefixes
-    int nodeCount = 0;
-    const std::string prefixes[] = {"ss://", "ssr://", "vmess://", "vmess1://", "vless://", "trojan://", "hysteria2://", "hy2://", "socks://", "http://", "https://", "Netch://"};
-    bool isBase64Sub = false;
-
-    // Check decoded content for proxy links
-    if(!decoded.empty())
-    {
-        std::stringstream ss(decoded);
-        std::string line;
-        while(std::getline(ss, line))
-        {
-            line = trim(line);
-            if(line.empty()) continue;
-            for(const auto &prefix : prefixes)
-            {
-                if(startsWith(line, prefix))
-                {
-                    nodeCount++;
-                    isBase64Sub = true;
-                    break;
-                }
-            }
-        }
-    }
-
-    // If not base64, check raw content (could be Clash YAML, JSON config, SSD, etc.)
-    if(!isBase64Sub)
-    {
-        bool isClash = regFind(content, "\"?(Proxy|proxies)\"?:");
-        bool isSSD = startsWith(content, "ssd://");
-        bool isSingBox = strFind(content, "\"outbounds\"");
-
-        if(isClash || isSSD || isSingBox)
-        {
-            // Parse as config to count nodes
-            std::vector<Proxy> nodes;
-            explodeConfContent(content, nodes);
-            nodeCount = nodes.size();
-            if(nodeCount > 0)
-            {
-                nlohmann::json result;
-                result["ok"] = true;
-                result["nodes"] = nodeCount;
-                result["format"] = isClash ? "clash" : (isSSD ? "ssd" : "singbox");
-                return result.dump();
-            }
-        }
-
-        // Also try raw content line by line for plain-text proxy links
-        std::stringstream ss(content);
-        std::string line;
-        while(std::getline(ss, line))
-        {
-            line = trim(line);
-            if(line.empty()) continue;
-            for(const auto &prefix : prefixes)
-            {
-                if(startsWith(line, prefix))
-                {
-                    nodeCount++;
-                    break;
-                }
-            }
-        }
-
-        if(nodeCount > 0)
-        {
-            nlohmann::json result;
-            result["ok"] = true;
-            result["nodes"] = nodeCount;
-            result["format"] = "plain";
-            return result.dump();
-        }
-
+    int nodeCount = countNodes(content);
+    if(nodeCount == 0)
         return R"({"ok":false,"error":"No valid proxy nodes found","nodes":0})";
-    }
+
+    // Cache the raw subscription data per URL hash
+    md(CUSTOM_DIR.c_str());
+    std::string urlHash = getMD5(url);
+    std::string cachePath = CUSTOM_DIR + "sub_" + urlHash + ".txt";
+    fileWrite(cachePath, content, true);
 
     nlohmann::json result;
     result["ok"] = true;
     result["nodes"] = nodeCount;
-    result["format"] = "base64";
     return result.dump();
 }
