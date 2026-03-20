@@ -52,4 +52,5 @@ WORKDIR /base
 VOLUME ["/base/custom"]
 EXPOSE 25500/tcp
 
-CMD ["subconverter", "-f", "custom/pref.toml"]
+RUN ln -sf custom/pref.toml /base/pref.toml
+CMD ["subconverter"]
