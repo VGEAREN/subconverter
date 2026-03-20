@@ -1580,7 +1580,7 @@ std::string renderTemplate(RESPONSE_CALLBACK_ARGS)
 
 // ============ Custom Config Management ============
 
-static const std::string CUSTOM_DIR = "custom/";
+static const std::string CUSTOM_DIR = "savedconfigs/";
 
 static bool isValidId(const std::string &id)
 {
