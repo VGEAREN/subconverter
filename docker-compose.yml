@@ -7,6 +7,7 @@ services:
     volumes:
       - ./base/custom/pref.toml:/base/pref.toml
       - ./base/custom/ACLSSR:/base/ACL4SSR
+      - ./base/custom/ACLSSR/Clash:/base/Clash
       - ./base/custom/savedconfigs:/base/custom/savedconfigs
     environment:
       - API_ACCESS_TOKEN=${API_ACCESS_TOKEN:-}

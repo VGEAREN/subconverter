@@ -458,7 +458,19 @@ async function testUrls() {
 }
 
 function copyLink(link) {
-  navigator.clipboard.writeText(link).then(() => toast('已复制到剪贴板', 'success')).catch(() => toast('复制失败', 'error'));
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(() => toast('已复制到剪贴板', 'success')).catch(() => toast('复制失败', 'error'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = link;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('已复制到剪贴板', 'success');
+  }
 }
 
 function esc(s) {
