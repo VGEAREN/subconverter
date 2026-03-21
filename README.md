@@ -60,10 +60,26 @@ git clone --recurse-submodules https://github.com/VGEAREN/subconverter.git
 cd subconverter
 
 # 构建并启动
-docker compose up -d
+docker compose up -d --build
 ```
 
 `base/custom` 目录通过 git submodule 引用 [VGEAREN/Rules](https://github.com/VGEAREN/Rules) 仓库，包含自定义规则和配置文件（`pref.toml`）。该目录以 volume 形式挂载到容器中。
+
+### 更新
+
+```bash
+# 更新主仓库
+git pull
+
+# 首次拉取子模块
+git submodule update --init --recursive
+
+# 更新子模块到最新
+git submodule update --remote --merge
+
+# 重建并重启
+docker compose up -d --build
+```
 
 ### 环境变量
 
