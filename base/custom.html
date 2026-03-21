@@ -389,7 +389,7 @@ async function testUrls() {
       const data = await resp.json();
       if (data.ok) {
         el.className = 'test-item ok';
-        el.innerHTML = `&#10004; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${data.nodes} 个节点</span> <span class="badge">${data.format}</span>`;
+        el.innerHTML = `&#10004; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${data.nodes} 个节点</span>`;
         okCount++;
       } else {
         el.className = 'test-item fail';
