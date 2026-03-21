@@ -36,5 +36,6 @@ std::string customList(RESPONSE_CALLBACK_ARGS);
 std::string customGet(RESPONSE_CALLBACK_ARGS);
 std::string customDelete(RESPONSE_CALLBACK_ARGS);
 std::string customTestUrl(RESPONSE_CALLBACK_ARGS);
+void refreshCustomSubscriptions();
 
 #endif // INTERFACES_H_INCLUDED

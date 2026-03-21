@@ -111,6 +111,14 @@ void cron_tick_caller()
 {
     if(global.enableCron)
         cron_tick();
+
+    // Check custom subscription refresh every 60 seconds
+    static int tick_count = 0;
+    if(++tick_count >= 300) // 300 * 200ms = 60s
+    {
+        tick_count = 0;
+        refreshCustomSubscriptions();
+    }
 }
 
 int main(int argc, char *argv[])

@@ -1936,3 +1936,67 @@ std::string customTestUrl(RESPONSE_CALLBACK_ARGS)
     result["nodes"] = nodeCount;
     return result.dump();
 }
+
+void refreshCustomSubscriptions()
+{
+    md(CUSTOM_DIR.c_str());
+    auto now = std::chrono::steady_clock::now();
+    static std::map<std::string, std::chrono::steady_clock::time_point> lastRefresh;
+
+    operateFiles(CUSTOM_DIR, [&](const char *name) -> bool {
+        std::string fname(name);
+        // Only process config JSON files (skip cache and sub files)
+        if(fname.size() <= 5 || fname.substr(fname.size() - 5) != ".json")
+            return false;
+
+        std::string content = fileGet(CUSTOM_DIR + fname);
+        nlohmann::json cfg;
+        try { cfg = nlohmann::json::parse(content); }
+        catch(...) { return false; }
+
+        // Get refresh interval (minutes), default 360 (6 hours), 0 = disabled
+        int refreshMin = cfg.value("refresh_interval", 360);
+        if(refreshMin <= 0) return false;
+
+        std::string cfgId = cfg.value("id", "");
+        if(cfgId.empty()) return false;
+
+        // Check if this config is due for refresh
+        auto it = lastRefresh.find(cfgId);
+        if(it != lastRefresh.end())
+        {
+            auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - it->second).count();
+            if(elapsed < refreshMin) return false;
+        }
+
+        // Extract URLs and refresh each
+        std::string urlStr = cfg.value("url", "");
+        if(urlStr.empty()) return false;
+
+        writeLog(0, "Refreshing subscriptions for custom config '" + cfgId + "'...", LOG_LEVEL_INFO);
+        string_array urls = split(urlStr, "|");
+        int updated = 0;
+        for(const auto &url : urls)
+        {
+            std::string trimmedUrl = trim(url);
+            if(trimmedUrl.empty()) continue;
+
+            std::string urlHash = getMD5(trimmedUrl);
+            std::string cachePath = CUSTOM_DIR + "sub_" + urlHash + ".txt";
+
+            std::string data = cleanFetch(trimmedUrl);
+            if(!data.empty() && countNodes(data) > 0)
+            {
+                fileWrite(cachePath, data, true);
+                updated++;
+            }
+            else
+            {
+                writeLog(0, "Refresh failed for URL (keeping cache): " + trimmedUrl.substr(0, 60), LOG_LEVEL_WARNING);
+            }
+        }
+        lastRefresh[cfgId] = now;
+        writeLog(0, "Refresh done for '" + cfgId + "': " + std::to_string(updated) + "/" + std::to_string(urls.size()) + " updated.", LOG_LEVEL_INFO);
+        return false;
+    });
+}

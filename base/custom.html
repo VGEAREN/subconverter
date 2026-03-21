@@ -59,6 +59,8 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
 .test-item.fail { background: #fdedec; color: var(--danger); }
 .test-item.loading { background: #f0f4ff; color: var(--primary); }
 .test-item .badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; background: rgba(0,0,0,0.08); white-space: nowrap; }
+.tip { display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center; border-radius: 50%; background: var(--border); color: var(--text-secondary); font-size: 11px; cursor: help; position: relative; flex-shrink: 0; }
+.tip:hover::after { content: attr(data-tip); position: absolute; left: 24px; top: 50%; transform: translateY(-50%); background: var(--text); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; z-index: 10; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -112,57 +114,32 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
     </div>
 
     <div class="form-group">
-      <label>远程配置</label>
-      <select id="cfg-config-select" onchange="onConfigSelect()">
-        <option value="">不使用</option>
-        <option value="config/ACL4SSR_Online.ini">ACL4SSR_Online</option>
-        <option value="config/ACL4SSR_Online_Full.ini">ACL4SSR_Online_Full</option>
-        <option value="config/ACL4SSR_Online_Full_AdblockPlus.ini">ACL4SSR_Online_Full_AdblockPlus</option>
-        <option value="config/ACL4SSR_Online_Full_Google.ini">ACL4SSR_Online_Full_Google</option>
-        <option value="config/ACL4SSR_Online_Full_MultiMode.ini">ACL4SSR_Online_Full_MultiMode</option>
-        <option value="config/ACL4SSR_Online_Full_Netflix.ini">ACL4SSR_Online_Full_Netflix</option>
-        <option value="config/ACL4SSR_Online_Full_NoAuto.ini">ACL4SSR_Online_Full_NoAuto</option>
-        <option value="config/ACL4SSR_Online_Mini.ini">ACL4SSR_Online_Mini</option>
-        <option value="config/ACL4SSR_Online_Mini_AdblockPlus.ini">ACL4SSR_Online_Mini_AdblockPlus</option>
-        <option value="config/ACL4SSR_Online_Mini_Fallback.ini">ACL4SSR_Online_Mini_Fallback</option>
-        <option value="config/ACL4SSR_Online_Mini_MultiCountry.ini">ACL4SSR_Online_Mini_MultiCountry</option>
-        <option value="config/ACL4SSR_Online_Mini_MultiMode.ini">ACL4SSR_Online_Mini_MultiMode</option>
-        <option value="config/ACL4SSR_Online_Mini_NoAuto.ini">ACL4SSR_Online_Mini_NoAuto</option>
-        <option value="config/ACL4SSR_Online_MultiCountry.ini">ACL4SSR_Online_MultiCountry</option>
-        <option value="config/ACL4SSR_Online_NoAuto.ini">ACL4SSR_Online_NoAuto</option>
-        <option value="config/ACL4SSR_Online_NoReject.ini">ACL4SSR_Online_NoReject</option>
-        <option value="config/ACL4SSR_Online_AdblockPlus.ini">ACL4SSR_Online_AdblockPlus</option>
-        <option value="__custom__">自定义 URL...</option>
-      </select>
-    </div>
-
-    <div class="form-group" id="custom-config-row" style="display:none;">
-      <label>自定义配置</label>
-      <input type="text" id="cfg-config" placeholder="远程配置文件 URL">
+      <label>缓存刷新 <span class="tip" data-tip="后台定时拉取订阅并更新本地缓存，失败时保留旧数据">?</span></label>
+      <input type="number" id="cfg-refresh_interval" placeholder="分钟，默认 360（6小时），0 为不自动刷新">
     </div>
 
     <div class="form-group">
-      <label>包含节点</label>
+      <label>包含节点 <span class="tip" data-tip="只保留匹配的节点，支持正则表达式">?</span></label>
       <input type="text" id="cfg-include" placeholder="正则表达式，如 港|HK|Hong">
     </div>
 
     <div class="form-group">
-      <label>排除节点</label>
+      <label>排除节点 <span class="tip" data-tip="移除匹配的节点，支持正则表达式">?</span></label>
       <input type="text" id="cfg-exclude" placeholder="正则表达式，如 到期|剩余|流量">
     </div>
 
     <div class="form-group">
-      <label>节点重命名</label>
+      <label>节点重命名 <span class="tip" data-tip="替换节点名称中的关键词，多个规则用 ` 分隔">?</span></label>
       <input type="text" id="cfg-rename" placeholder="格式: 旧名@新名 多个用 ` 分隔">
     </div>
 
     <div class="form-group">
-      <label>输出文件名</label>
+      <label>输出文件名 <span class="tip" data-tip="客户端下载时的文件名">?</span></label>
       <input type="text" id="cfg-filename" placeholder="如 config.yaml">
     </div>
 
     <div class="form-group">
-      <label>更新间隔</label>
+      <label>更新间隔 <span class="tip" data-tip="写入配置文件，告诉客户端多久自动拉取一次订阅">?</span></label>
       <input type="number" id="cfg-interval" placeholder="秒，如 86400">
     </div>
 
@@ -170,39 +147,39 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
       <label>开关选项</label>
       <div class="toggle-row">
         <div class="toggle-item">
-          <span>Emoji</span>
+          <span>Emoji</span><span class="tip" data-tip="在节点名称前添加国旗 emoji，如 🇭🇰 香港">?</span>
           <select id="cfg-emoji"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
         </div>
         <div class="toggle-item">
-          <span>UDP</span>
+          <span>UDP</span><span class="tip" data-tip="强制开启或关闭节点的 UDP 转发支持">?</span>
           <select id="cfg-udp"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
         </div>
         <div class="toggle-item">
-          <span>TFO</span>
+          <span>TFO</span><span class="tip" data-tip="TCP Fast Open，减少连接握手延迟">?</span>
           <select id="cfg-tfo"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
         </div>
         <div class="toggle-item">
-          <span>排序</span>
+          <span>排序</span><span class="tip" data-tip="按节点名称对所有节点排序">?</span>
           <select id="cfg-sort"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
         </div>
         <div class="toggle-item">
-          <span>跳过证书验证</span>
+          <span>跳过证书验证</span><span class="tip" data-tip="跳过 TLS 证书验证，用于自签名证书的节点">?</span>
           <select id="cfg-scv"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
         </div>
         <div class="toggle-item">
-          <span>过滤废弃节点</span>
+          <span>过滤废弃节点</span><span class="tip" data-tip="移除不再支持的旧协议节点">?</span>
           <select id="cfg-fdn"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
         </div>
         <div class="toggle-item">
-          <span>TLS 1.3</span>
+          <span>TLS 1.3</span><span class="tip" data-tip="强制开启 TLS 1.3 加密协议">?</span>
           <select id="cfg-tls13"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
         </div>
         <div class="toggle-item">
-          <span>追加节点类型</span>
+          <span>追加节点类型</span><span class="tip" data-tip="在节点名称后追加协议标识，如 [SS]、[VMess]">?</span>
           <select id="cfg-append_type"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
         </div>
         <div class="toggle-item">
-          <span>展开规则集</span>
+          <span>展开规则集</span><span class="tip" data-tip="将 rule-provider 展开为内联规则，无需客户端远程加载">?</span>
           <select id="cfg-expand"><option value="">默认</option><option value="true">开</option><option value="false">关</option></select>
         </div>
       </div>
@@ -232,7 +209,7 @@ const FIELDS = [
   {id: 'cfg-name', key: 'name'},
   {id: 'cfg-target', key: 'target'},
   {id: 'cfg-url', key: 'url', type: 'textarea'},
-  {id: 'cfg-config', key: 'config'},
+  {id: 'cfg-refresh_interval', key: 'refresh_interval'},
   {id: 'cfg-include', key: 'include'},
   {id: 'cfg-exclude', key: 'exclude'},
   {id: 'cfg-rename', key: 'rename'},
@@ -254,18 +231,6 @@ function toast(msg, type) {
   el.textContent = msg;
   el.className = 'toast show ' + type;
   setTimeout(() => el.className = 'toast', 2500);
-}
-
-function onConfigSelect() {
-  const sel = document.getElementById('cfg-config-select');
-  const row = document.getElementById('custom-config-row');
-  if (sel.value === '__custom__') {
-    row.style.display = 'flex';
-    document.getElementById('cfg-config').value = '';
-  } else {
-    row.style.display = 'none';
-    document.getElementById('cfg-config').value = sel.value;
-  }
 }
 
 function getFormData() {
@@ -305,17 +270,6 @@ function setFormData(data) {
     }
   });
 
-  // Sync config select dropdown
-  const cfgVal = data.config || '';
-  const sel = document.getElementById('cfg-config-select');
-  const opts = Array.from(sel.options).map(o => o.value);
-  if (cfgVal === '' || opts.includes(cfgVal)) {
-    sel.value = cfgVal;
-    document.getElementById('custom-config-row').style.display = 'none';
-  } else {
-    sel.value = '__custom__';
-    document.getElementById('custom-config-row').style.display = 'flex';
-  }
 }
 
 function resetForm() {
@@ -323,8 +277,6 @@ function resetForm() {
   FIELDS.forEach(f => document.getElementById(f.id).value = '');
   document.getElementById('cfg-id').readOnly = false;
   document.getElementById('cfg-target').value = 'clash';
-  document.getElementById('cfg-config-select').value = '';
-  document.getElementById('custom-config-row').style.display = 'none';
 }
 
 async function saveConfig() {

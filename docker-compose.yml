@@ -12,7 +12,4 @@ services:
     environment:
       - API_ACCESS_TOKEN=${API_ACCESS_TOKEN:-}
       - MANAGED_CONFIG_PREFIX=${MANAGED_CONFIG_PREFIX:-http://127.0.0.1:25500}
-    dns:
-      - 223.5.5.5
-      - 8.8.8.8
     restart: always
