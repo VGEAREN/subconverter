@@ -203,8 +203,21 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
 
 <script>
 const BASE = window.location.origin;
-const PWD = new URLSearchParams(window.location.search).get('password') || new URLSearchParams(window.location.search).get('pwd') || '';
+let PWD = new URLSearchParams(window.location.search).get('password') || new URLSearchParams(window.location.search).get('pwd') || localStorage.getItem('custom_pwd') || '';
 function api(path) { return BASE + path + (path.includes('?') ? '&' : '?') + 'password=' + encodeURIComponent(PWD); }
+
+async function checkAuth() {
+  const resp = await fetch(api('/api/custom/list'));
+  if (resp.status === 401) {
+    const input = prompt('请输入管理密码:');
+    if (!input) { document.body.innerHTML = '<h2 style="text-align:center;margin-top:100px;color:#999;">需要密码才能访问</h2>'; return; }
+    PWD = input;
+    localStorage.setItem('custom_pwd', PWD);
+    const retry = await fetch(api('/api/custom/list'));
+    if (retry.status === 401) { localStorage.removeItem('custom_pwd'); alert('密码错误'); location.reload(); return; }
+  }
+  loadList();
+}
 
 const FIELDS = [
   {id: 'cfg-id', key: 'id'},
@@ -459,7 +472,7 @@ function esc(s) {
   return d.innerHTML;
 }
 
-loadList();
+checkAuth();
 </script>
 </body>
 </html>

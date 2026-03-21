@@ -1617,8 +1617,6 @@ static bool checkCustomAuth(Request &request, Response &response)
 
 std::string customPage(RESPONSE_CALLBACK_ARGS)
 {
-    if(!checkCustomAuth(request, response))
-        return "Unauthorized";
     response.content_type = "text/html; charset=utf-8";
     return fileGet("custom.html");
 }
