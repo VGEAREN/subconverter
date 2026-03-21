@@ -12,4 +12,5 @@ services:
     environment:
       - API_ACCESS_TOKEN=${API_ACCESS_TOKEN:-}
       - MANAGED_CONFIG_PREFIX=${MANAGED_CONFIG_PREFIX:-http://127.0.0.1:25500}
+      - CUSTOM_PAGE_PASSWORD=${CUSTOM_PAGE_PASSWORD:-}
     restart: always

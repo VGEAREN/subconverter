@@ -203,6 +203,8 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
 
 <script>
 const BASE = window.location.origin;
+const PWD = new URLSearchParams(window.location.search).get('password') || new URLSearchParams(window.location.search).get('pwd') || '';
+function api(path) { return BASE + path + (path.includes('?') ? '&' : '?') + 'password=' + encodeURIComponent(PWD); }
 
 const FIELDS = [
   {id: 'cfg-id', key: 'id'},
@@ -287,7 +289,7 @@ async function saveConfig() {
   if (!data.target) { toast('请选择目标格式', 'error'); return; }
 
   try {
-    const resp = await fetch(BASE + '/api/custom/save', {
+    const resp = await fetch(api('/api/custom/save'), {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(data)
@@ -307,7 +309,7 @@ async function saveConfig() {
 
 async function loadList() {
   try {
-    const resp = await fetch(BASE + '/api/custom/list');
+    const resp = await fetch(api('/api/custom/list'));
     const list = await resp.json();
     const ul = document.getElementById('config-list');
     if (!list.length) {
@@ -339,13 +341,39 @@ async function loadList() {
 
 async function editConfig(id) {
   try {
-    const resp = await fetch(BASE + '/api/custom/get?id=' + id);
+    const resp = await fetch(api('/api/custom/get?id=' + id));
     const data = await resp.json();
     if (data.error) { toast(data.error, 'error'); return; }
     setFormData(data);
     document.getElementById('cfg-id').readOnly = true;
     document.getElementById('form-title').textContent = '编辑配置: ' + (data.name || id);
     window.scrollTo({top: 0, behavior: 'smooth'});
+    // Load cache info for each URL
+    const urlStr = data.url || '';
+    if (urlStr) {
+      const urls = urlStr.split('|').map(s => s.trim()).filter(Boolean);
+      const container = document.getElementById('test-results');
+      container.innerHTML = urls.map((url, i) =>
+        `<div class="test-item loading" id="test-${i}">&#8987; ${esc(url.length > 60 ? url.substring(0, 60) + '...' : url)}</div>`
+      ).join('');
+      urls.forEach(async (url, i) => {
+        const el = document.getElementById('test-' + i);
+        try {
+          const r = await fetch(api('/api/custom/cache_info?url=' + encodeURIComponent(url)));
+          const d = await r.json();
+          if (d.ok && d.cached) {
+            el.className = 'test-item ok';
+            el.innerHTML = `&#10004; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${d.nodes} 个节点（已缓存）</span>`;
+          } else {
+            el.className = 'test-item fail';
+            el.innerHTML = `&#10008; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">未缓存</span>`;
+          }
+        } catch(e) {
+          el.className = 'test-item fail';
+          el.innerHTML = `&#10008; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">查询失败</span>`;
+        }
+      });
+    }
   } catch(e) {
     toast('加载配置失败', 'error');
   }
@@ -354,7 +382,7 @@ async function editConfig(id) {
 async function deleteConfig(id) {
   if (!confirm('确定要删除这个配置吗？')) return;
   try {
-    const resp = await fetch(BASE + '/api/custom/delete?id=' + id, {method: 'DELETE'});
+    const resp = await fetch(api('/api/custom/delete?id=' + id), {method: 'DELETE'});
     const result = await resp.json();
     if (result.ok) {
       toast('已删除', 'success');
@@ -385,7 +413,7 @@ async function testUrls() {
   const promises = urls.map(async (url, i) => {
     const el = document.getElementById('test-' + i);
     try {
-      const resp = await fetch(BASE + '/api/custom/test?url=' + encodeURIComponent(url));
+      const resp = await fetch(api('/api/custom/test?url=' + encodeURIComponent(url)));
       const data = await resp.json();
       if (data.ok) {
         el.className = 'test-item ok';

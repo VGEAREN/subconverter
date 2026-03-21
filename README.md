@@ -89,6 +89,7 @@ docker compose up -d --build
 | --- | --- | --- |
 | `API_ACCESS_TOKEN` | Web 接口访问令牌 | 空（不鉴权） |
 | `MANAGED_CONFIG_PREFIX` | 托管配置地址前缀（不含末尾 `/`） | `http://127.0.0.1:25500` |
+| `CUSTOM_PAGE_PASSWORD` | 可视化配置页面访问密码 | 空（不鉴权） |
 
 `.env` 文件示例：
 ```env

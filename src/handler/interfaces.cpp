@@ -1603,8 +1603,22 @@ static std::string generateId()
     return buf;
 }
 
+static bool checkCustomAuth(Request &request, Response &response)
+{
+    static std::string password = getEnv("CUSTOM_PAGE_PASSWORD");
+    if(password.empty()) return true;
+    std::string token = getUrlArg(request.argument, "password");
+    if(token.empty())
+        token = getUrlArg(request.argument, "pwd");
+    if(token == password) return true;
+    response.status_code = 401;
+    return false;
+}
+
 std::string customPage(RESPONSE_CALLBACK_ARGS)
 {
+    if(!checkCustomAuth(request, response))
+        return "Unauthorized";
     response.content_type = "text/html; charset=utf-8";
     return fileGet("custom.html");
 }
@@ -1722,6 +1736,8 @@ std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
 std::string customSave(RESPONSE_CALLBACK_ARGS)
 {
     response.content_type = "application/json";
+    if(!checkCustomAuth(request, response))
+        return R"({"ok":false,"error":"Unauthorized"})";
 
     if(request.postdata.empty())
     {
@@ -1771,6 +1787,8 @@ std::string customSave(RESPONSE_CALLBACK_ARGS)
 std::string customList(RESPONSE_CALLBACK_ARGS)
 {
     response.content_type = "application/json";
+    if(!checkCustomAuth(request, response))
+        return R"({"ok":false,"error":"Unauthorized"})";
     nlohmann::json arr = nlohmann::json::array();
 
     md(CUSTOM_DIR.c_str());
@@ -1800,6 +1818,8 @@ std::string customList(RESPONSE_CALLBACK_ARGS)
 std::string customGet(RESPONSE_CALLBACK_ARGS)
 {
     response.content_type = "application/json";
+    if(!checkCustomAuth(request, response))
+        return R"({"ok":false,"error":"Unauthorized"})";
     std::string id = getUrlArg(request.argument, "id");
 
     if(!isValidId(id))
@@ -1820,6 +1840,8 @@ std::string customGet(RESPONSE_CALLBACK_ARGS)
 std::string customDelete(RESPONSE_CALLBACK_ARGS)
 {
     response.content_type = "application/json";
+    if(!checkCustomAuth(request, response))
+        return R"({"ok":false,"error":"Unauthorized"})";
     std::string id = getUrlArg(request.argument, "id");
 
     if(!isValidId(id))
@@ -1908,6 +1930,8 @@ static int countNodes(const std::string &content)
 std::string customTestUrl(RESPONSE_CALLBACK_ARGS)
 {
     response.content_type = "application/json";
+    if(!checkCustomAuth(request, response))
+        return R"({"ok":false,"error":"Unauthorized"})";
     std::string url = getUrlArg(request.argument, "url");
     std::string id = getUrlArg(request.argument, "id");
     if(url.empty())
@@ -1933,6 +1957,33 @@ std::string customTestUrl(RESPONSE_CALLBACK_ARGS)
 
     nlohmann::json result;
     result["ok"] = true;
+    result["nodes"] = nodeCount;
+    return result.dump();
+}
+
+std::string customCacheInfo(RESPONSE_CALLBACK_ARGS)
+{
+    response.content_type = "application/json";
+    if(!checkCustomAuth(request, response))
+        return R"({"ok":false,"error":"Unauthorized"})";
+    std::string url = getUrlArg(request.argument, "url");
+    if(url.empty())
+    {
+        response.status_code = 400;
+        return R"({"ok":false,"error":"Missing url parameter"})";
+    }
+
+    std::string urlHash = getMD5(url);
+    std::string cachePath = CUSTOM_DIR + "sub_" + urlHash + ".txt";
+    if(!fileExist(cachePath))
+        return R"({"ok":false,"cached":false,"nodes":0})";
+
+    std::string content = fileGet(cachePath);
+    int nodeCount = countNodes(content);
+
+    nlohmann::json result;
+    result["ok"] = true;
+    result["cached"] = true;
     result["nodes"] = nodeCount;
     return result.dump();
 }

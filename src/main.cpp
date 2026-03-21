@@ -289,6 +289,7 @@ int main(int argc, char *argv[])
     webServer.append_response("GET", "/api/custom/get", "application/json", customGet);
     webServer.append_response("DELETE", "/api/custom/delete", "application/json", customDelete);
     webServer.append_response("GET", "/api/custom/test", "application/json", customTestUrl);
+    webServer.append_response("GET", "/api/custom/cache_info", "application/json", customCacheInfo);
 
     if(!global.APIMode)
     {
