@@ -2010,7 +2010,14 @@ void refreshCustomSubscriptions()
         catch(...) { return false; }
 
         // Get refresh interval (minutes), default 360 (6 hours), 0 = disabled
-        int refreshMin = cfg.value("refresh_interval", 360);
+        int refreshMin = 360;
+        if(cfg.contains("refresh_interval"))
+        {
+            if(cfg["refresh_interval"].is_number())
+                refreshMin = cfg["refresh_interval"].get<int>();
+            else if(cfg["refresh_interval"].is_string())
+                refreshMin = to_int(cfg["refresh_interval"].get<std::string>(), 360);
+        }
         if(refreshMin <= 0) return false;
 
         std::string cfgId = cfg.value("id", "");

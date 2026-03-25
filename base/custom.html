@@ -259,6 +259,10 @@ function getFormData() {
   if (data.url) {
     data.url = data.url.split('\n').map(s => s.trim()).filter(Boolean).join('|');
   }
+  // Ensure refresh_interval is stored as a number
+  if (data.refresh_interval) {
+    data.refresh_interval = parseInt(data.refresh_interval, 10) || 0;
+  }
   // Handle target with ver (e.g. "surge&ver=4")
   if (data.target && data.target.includes('&ver=')) {
     const parts = data.target.split('&ver=');
