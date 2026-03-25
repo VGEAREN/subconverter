@@ -376,7 +376,8 @@ async function editConfig(id) {
           const d = await r.json();
           if (d.ok && d.cached) {
             el.className = 'test-item ok';
-            el.innerHTML = `&#10004; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${d.nodes} 个节点（已缓存）</span>`;
+            const updatedAt = d.updated_at ? new Date(d.updated_at * 1000).toLocaleString('zh-CN') : '';
+            el.innerHTML = `&#10004; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${d.nodes} 个节点（已缓存）</span>${updatedAt ? ` <span class="badge" style="background:rgba(23,162,184,0.12);color:#17a2b8">${updatedAt} 更新</span>` : ''}`;
           } else {
             el.className = 'test-item fail';
             el.innerHTML = `&#10008; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">未缓存</span>`;

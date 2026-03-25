@@ -1979,10 +1979,16 @@ std::string customCacheInfo(RESPONSE_CALLBACK_ARGS)
     std::string content = fileGet(cachePath);
     int nodeCount = countNodes(content);
 
+    struct stat st;
+    time_t mtime = 0;
+    if(stat(cachePath.c_str(), &st) == 0)
+        mtime = st.st_mtime;
+
     nlohmann::json result;
     result["ok"] = true;
     result["cached"] = true;
     result["nodes"] = nodeCount;
+    result["updated_at"] = mtime;
     return result.dump();
 }
 
