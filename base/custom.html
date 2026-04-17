@@ -59,6 +59,13 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
 .test-item.fail { background: #fdedec; color: var(--danger); }
 .test-item.loading { background: #f0f4ff; color: var(--primary); }
 .test-item .badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; background: rgba(0,0,0,0.08); white-space: nowrap; }
+.sub-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.sub-row input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; transition: border-color .2s; }
+.sub-row input:focus { outline: none; border-color: var(--primary); }
+.sub-row input.sub-name { width: 100px; flex-shrink: 0; }
+.sub-row input.sub-url { flex: 1; font-family: monospace; }
+.sub-row .btn-rm { padding: 4px 8px; font-size: 16px; line-height: 1; color: var(--danger); background: transparent; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+.sub-row .btn-rm:hover { border-color: var(--danger); background: #fdedec; }
 .tip { display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center; border-radius: 50%; background: var(--border); color: var(--text-secondary); font-size: 11px; cursor: help; position: relative; flex-shrink: 0; }
 .tip:hover::after { content: attr(data-tip); position: absolute; left: 24px; top: 50%; transform: translateY(-50%); background: var(--text); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; z-index: 10; pointer-events: none; }
 </style>
@@ -101,13 +108,14 @@ h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
       </select>
     </div>
 
-    <div class="form-group">
-      <label>订阅链接</label>
+    <div class="form-group" style="align-items:flex-start;">
+      <label style="padding-top:8px;">订阅链接</label>
       <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
-        <textarea id="cfg-url" placeholder="每行一个订阅链接，多个链接会自动合并" style="min-height:100px;flex-shrink:0;"></textarea>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div id="sub-list"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" onclick="addSubRow()">+ 添加订阅</button>
           <button class="btn btn-outline" onclick="testUrls()" id="btn-test">测试订阅链接</button>
-          <span id="test-status" style="font-size:13px;color:var(--text-secondary);"></span>
+          <span id="test-status" style="font-size:13px;color:var(--text-secondary);line-height:32px;"></span>
         </div>
         <div id="test-results"></div>
       </div>
@@ -223,7 +231,6 @@ const FIELDS = [
   {id: 'cfg-id', key: 'id'},
   {id: 'cfg-name', key: 'name'},
   {id: 'cfg-target', key: 'target'},
-  {id: 'cfg-url', key: 'url', type: 'textarea'},
   {id: 'cfg-refresh_interval', key: 'refresh_interval'},
   {id: 'cfg-include', key: 'include'},
   {id: 'cfg-exclude', key: 'exclude'},
@@ -241,6 +248,31 @@ const FIELDS = [
   {id: 'cfg-expand', key: 'expand'},
 ];
 
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function addSubRow(name, url) {
+  const list = document.getElementById('sub-list');
+  const row = document.createElement('div');
+  row.className = 'sub-row';
+  row.innerHTML = `<input class="sub-name" type="text" placeholder="名称" value="${esc(name || '')}"><input class="sub-url" type="text" placeholder="订阅链接 URL" value="${esc(url || '')}"><button class="btn-rm" onclick="this.parentElement.remove()" title="删除">&minus;</button>`;
+  list.appendChild(row);
+}
+
+function getSubRows() {
+  const rows = document.querySelectorAll('#sub-list .sub-row');
+  const result = [];
+  rows.forEach(row => {
+    const name = row.querySelector('.sub-name').value.trim();
+    const url = row.querySelector('.sub-url').value.trim();
+    if (url) result.push({name: name || '', url});
+  });
+  return result;
+}
+
 function toast(msg, type) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -255,9 +287,12 @@ function getFormData() {
     const val = el.value.trim();
     if (val) data[f.key] = val;
   });
-  // Handle multi-line URLs: join with |
-  if (data.url) {
-    data.url = data.url.split('\n').map(s => s.trim()).filter(Boolean).join('|');
+  // Collect subscription rows
+  const subs = getSubRows();
+  if (subs.length > 0) {
+    data.url = subs.map(s => s.url).join('|');
+    const names = subs.map(s => s.name);
+    if (names.some(n => n)) data.url_names = names.join('|');
   }
   // Ensure refresh_interval is stored as a number
   if (data.refresh_interval) {
@@ -281,14 +316,15 @@ function setFormData(data) {
   FIELDS.forEach(f => {
     if (f.key === 'target') return;
     const el = document.getElementById(f.id);
-    const val = data[f.key] || '';
-    if (f.key === 'url') {
-      el.value = val.split('|').join('\n');
-    } else {
-      el.value = val;
-    }
+    el.value = data[f.key] || '';
   });
 
+  // Populate subscription rows
+  document.getElementById('sub-list').innerHTML = '';
+  const urls = (data.url || '').split('|').map(s => s.trim()).filter(Boolean);
+  const names = (data.url_names || '').split('|');
+  urls.forEach((url, i) => addSubRow(names[i] || '', url));
+  if (urls.length === 0) addSubRow();
 }
 
 function resetForm() {
@@ -296,13 +332,15 @@ function resetForm() {
   FIELDS.forEach(f => document.getElementById(f.id).value = '');
   document.getElementById('cfg-id').readOnly = false;
   document.getElementById('cfg-target').value = 'clash';
+  document.getElementById('sub-list').innerHTML = '';
+  addSubRow();
 }
 
 async function saveConfig() {
   const data = getFormData();
   if (!data.id) { toast('请输入配置 ID', 'error'); return; }
   if (!/^[a-zA-Z0-9_-]+$/.test(data.id)) { toast('ID 只能包含英文、数字、下划线和短横线', 'error'); return; }
-  if (!data.url) { toast('请输入订阅链接', 'error'); return; }
+  if (!data.url) { toast('请至少添加一个订阅链接', 'error'); return; }
   if (!data.target) { toast('请选择目标格式', 'error'); return; }
 
   try {
@@ -367,28 +405,32 @@ async function editConfig(id) {
     window.scrollTo({top: 0, behavior: 'smooth'});
     // Load cache info for each URL
     const urlStr = data.url || '';
+    const nameStr = data.url_names || '';
     if (urlStr) {
       const urls = urlStr.split('|').map(s => s.trim()).filter(Boolean);
+      const names = nameStr.split('|');
       const container = document.getElementById('test-results');
-      container.innerHTML = urls.map((url, i) =>
-        `<div class="test-item loading" id="test-${i}">&#8987; ${esc(url.length > 60 ? url.substring(0, 60) + '...' : url)}</div>`
-      ).join('');
+      container.innerHTML = urls.map((url, i) => {
+        const label = names[i] ? esc(names[i]) : esc(url.length > 60 ? url.substring(0, 60) + '...' : url);
+        return `<div class="test-item loading" id="test-${i}">&#8987; ${label}</div>`;
+      }).join('');
       urls.forEach(async (url, i) => {
         const el = document.getElementById('test-' + i);
+        const label = names[i] ? esc(names[i]) : esc(url.length > 50 ? url.substring(0, 50) + '...' : url);
         try {
           const r = await fetch(api('/api/custom/cache_info?url=' + encodeURIComponent(url)));
           const d = await r.json();
           if (d.ok && d.cached) {
             el.className = 'test-item ok';
             const updatedAt = d.updated_at ? new Date(d.updated_at * 1000).toLocaleString('zh-CN') : '';
-            el.innerHTML = `&#10004; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${d.nodes} 个节点（已缓存）</span>${updatedAt ? ` <span class="badge" style="background:rgba(23,162,184,0.12);color:#17a2b8">${updatedAt} 更新</span>` : ''}`;
+            el.innerHTML = `&#10004; ${label} <span class="badge">${d.nodes} 个节点（已缓存）</span>${updatedAt ? ` <span class="badge" style="background:rgba(23,162,184,0.12);color:#17a2b8">${updatedAt} 更新</span>` : ''}`;
           } else {
             el.className = 'test-item fail';
-            el.innerHTML = `&#10008; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">未缓存</span>`;
+            el.innerHTML = `&#10008; ${label} <span class="badge">未缓存</span>`;
           }
         } catch(e) {
           el.className = 'test-item fail';
-          el.innerHTML = `&#10008; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">查询失败</span>`;
+          el.innerHTML = `&#10008; ${label} <span class="badge">查询失败</span>`;
         }
       });
     }
@@ -414,37 +456,38 @@ async function deleteConfig(id) {
 }
 
 async function testUrls() {
-  const text = document.getElementById('cfg-url').value.trim();
-  if (!text) { toast('请先输入订阅链接', 'error'); return; }
-  const urls = text.split('\n').map(s => s.trim()).filter(Boolean);
+  const subs = getSubRows();
+  if (!subs.length) { toast('请先添加订阅链接', 'error'); return; }
   const container = document.getElementById('test-results');
   const btn = document.getElementById('btn-test');
   const status = document.getElementById('test-status');
   btn.disabled = true;
   btn.textContent = '测试中...';
   status.textContent = '';
-  container.innerHTML = urls.map((url, i) =>
-    `<div class="test-item loading" id="test-${i}">&#8987; ${esc(url.length > 60 ? url.substring(0, 60) + '...' : url)}</div>`
-  ).join('');
+  container.innerHTML = subs.map((s, i) => {
+    const label = s.name ? esc(s.name) : esc(s.url.length > 60 ? s.url.substring(0, 60) + '...' : s.url);
+    return `<div class="test-item loading" id="test-${i}">&#8987; ${label}</div>`;
+  }).join('');
 
   let okCount = 0, failCount = 0;
-  const promises = urls.map(async (url, i) => {
+  const promises = subs.map(async (s, i) => {
     const el = document.getElementById('test-' + i);
+    const label = s.name ? esc(s.name) : esc(s.url.length > 50 ? s.url.substring(0, 50) + '...' : s.url);
     try {
-      const resp = await fetch(api('/api/custom/test?url=' + encodeURIComponent(url)));
+      const resp = await fetch(api('/api/custom/test?url=' + encodeURIComponent(s.url)));
       const data = await resp.json();
       if (data.ok) {
         el.className = 'test-item ok';
-        el.innerHTML = `&#10004; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${data.nodes} 个节点</span>`;
+        el.innerHTML = `&#10004; ${label} <span class="badge">${data.nodes} 个节点</span>`;
         okCount++;
       } else {
         el.className = 'test-item fail';
-        el.innerHTML = `&#10008; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">${data.error || '无有效节点'}</span>`;
+        el.innerHTML = `&#10008; ${label} <span class="badge">${data.error || '无有效节点'}</span>`;
         failCount++;
       }
     } catch(e) {
       el.className = 'test-item fail';
-      el.innerHTML = `&#10008; ${esc(url.length > 50 ? url.substring(0, 50) + '...' : url)} <span class="badge">请求失败</span>`;
+      el.innerHTML = `&#10008; ${label} <span class="badge">请求失败</span>`;
       failCount++;
     }
   });
@@ -471,12 +514,7 @@ function copyLink(link) {
   }
 }
 
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
+addSubRow();
 checkAuth();
 </script>
 </body>
