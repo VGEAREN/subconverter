@@ -334,7 +334,7 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
         readConf();
 
     /// string values
-    std::string argUrl = getUrlArg(argument, "url");
+    std::string argUrl = getUrlArg(argument, "url"), argUrlNames = getUrlArg(argument, "url_names");
     std::string argGroupName = getUrlArg(argument, "group"), argUploadPath = getUrlArg(argument, "upload_path");
     std::string argIncludeRemark = getUrlArg(argument, "include"), argExcludeRemark = getUrlArg(argument, "exclude");
     std::string argCustomGroups = urlSafeBase64Decode(getUrlArg(argument, "groups")), argCustomRulesets = urlSafeBase64Decode(getUrlArg(argument, "ruleset")), argExternalConfig = getUrlArg(argument, "config");
@@ -740,6 +740,18 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
 
     //do pre-process now
     preprocessNodes(nodes, ext);
+
+    // Prepend subscription names to node remarks based on GroupId
+    if(!argUrlNames.empty())
+    {
+        string_array subNames = split(argUrlNames, "|");
+        for(Proxy &x : nodes)
+        {
+            int gid = x.GroupId;
+            if(gid >= 0 && gid < (int)subNames.size() && !subNames[gid].empty())
+                x.Remark = "[" + subNames[gid] + "] " + x.Remark;
+        }
+    }
 
     /*
     //insert node info to template
@@ -1685,6 +1697,14 @@ std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
             fakeReq.argument.erase(key);
             fakeReq.argument.emplace(key, val);
         }
+    }
+
+    // Pass subscription names if available
+    if(cfg.contains("url_names") && cfg["url_names"].is_string())
+    {
+        std::string names = cfg["url_names"].get<std::string>();
+        if(!names.empty())
+            fakeReq.argument.emplace("url_names", names);
     }
 
     // Replace remote URLs with cached local subscription files
