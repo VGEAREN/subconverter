@@ -510,6 +510,25 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
             }
         }
     }
+    // Append per-subscription proxy groups if sub_groups is provided
+    std::string argSubGroups = getUrlArg(argument, "sub_groups");
+    if(!argSubGroups.empty() && !lSimpleSubscription)
+    {
+        string_array subNames = split(argSubGroups, "|");
+        for(const auto &sn : subNames)
+        {
+            std::string trimmed = trim(sn);
+            if(trimmed.empty()) continue;
+            ProxyGroupConfig grp;
+            grp.Name = trimmed;
+            grp.Type = ProxyGroupType::URLTest;
+            grp.Proxies.emplace_back("\\[" + trimmed + "\\]");
+            grp.Url = "http://www.gstatic.com/generate_204";
+            grp.Interval = 300;
+            grp.Tolerance = 100;
+            lCustomProxyGroups.emplace_back(std::move(grp));
+        }
+    }
     if(ext.enable_rule_generator && !ext.nodelist && !lSimpleSubscription)
     {
         if(lCustomRulesets != global.customRulesets)
@@ -1699,12 +1718,16 @@ std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
         }
     }
 
-    // Pass subscription names if available
+    // Pass subscription names for node remark prefixing
     if(cfg.contains("url_names") && cfg["url_names"].is_string())
     {
         std::string names = cfg["url_names"].get<std::string>();
         if(!names.empty())
+        {
             fakeReq.argument.emplace("url_names", names);
+            // Pass subscription group definitions for appending inside subconverter
+            fakeReq.argument.emplace("sub_groups", names);
+        }
     }
 
     // Replace remote URLs with cached local subscription files
