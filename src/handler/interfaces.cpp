@@ -515,6 +515,7 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
     if(!argSubGroups.empty() && !lSimpleSubscription)
     {
         string_array subNames = split(argSubGroups, "|");
+        string_array validSubNames;
         for(const auto &sn : subNames)
         {
             std::string trimmed = trim(sn);
@@ -527,6 +528,22 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
             grp.Interval = 300;
             grp.Tolerance = 100;
             lCustomProxyGroups.emplace_back(std::move(grp));
+            validSubNames.emplace_back(trimmed);
+        }
+        // Inject subscription group references into every Select-type group
+        // that references other groups via [] (e.g. 节点选择, Ai平台, 电报消息)
+        if(!validSubNames.empty())
+        {
+            for(auto &g : lCustomProxyGroups)
+            {
+                if(g.Type != ProxyGroupType::Select) continue;
+                bool hasRefs = false;
+                for(const auto &p : g.Proxies)
+                    if(startsWith(p, "[]")) { hasRefs = true; break; }
+                if(!hasRefs) continue;
+                for(const auto &sn : validSubNames)
+                    g.Proxies.emplace_back("[]" + sn);
+            }
         }
     }
     if(ext.enable_rule_generator && !ext.nodelist && !lSimpleSubscription)
