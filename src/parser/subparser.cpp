@@ -108,6 +108,27 @@ void trojanConstruct(Proxy &node, const std::string &group, const std::string &r
     node.Path = path;
 }
 
+void vlessConstruct(Proxy &node, const std::string &group, const std::string &remarks, const std::string &server, const std::string &port, const std::string &id, const std::string &cipher, const std::string &net, const std::string &security, const std::string &flow, const std::string &path, const std::string &host, const std::string &sni, const std::string &fingerprint, const std::string &pbk, const std::string &sid, const std::string &spx, const std::string &serviceName, tribool udp, tribool tfo, tribool scv, const std::string &underlying_proxy)
+{
+    commonConstruct(node, ProxyType::VLESS, group, remarks, server, port, udp, tfo, scv, tribool(), underlying_proxy);
+    node.UserId = id;
+    node.EncryptMethod = cipher.empty() ? "none" : cipher;
+    node.TransferProtocol = net.empty() ? "tcp" : net;
+    node.Host = host;
+    node.Path = path;
+    node.ServerName = sni;
+    node.TLSSecure = (security == "tls" || security == "reality");
+    node.Flow = flow;
+    node.Fingerprint = fingerprint;
+    node.GRPCServiceName = serviceName;
+    if(security == "reality")
+    {
+        node.RealityPublicKey = pbk;
+        node.RealityShortId = sid;
+        node.RealitySpiderX = spx;
+    }
+}
+
 void snellConstruct(Proxy &node, const std::string &group, const std::string &remarks, const std::string &server, const std::string &port, const std::string &password, const std::string &obfs, const std::string &host, uint16_t version, tribool udp, tribool tfo, tribool scv, const std::string& underlying_proxy)
 {
     commonConstruct(node, ProxyType::Snell, group, remarks, server, port, udp, tfo, scv, tribool(), underlying_proxy);
@@ -922,6 +943,61 @@ void explodeTrojan(std::string trojan, Proxy &node)
     trojanConstruct(node, group, remark, server, port, psk, network, host, path, true, tribool(), tfo, scv);
 }
 
+void explodeVless(std::string vless, Proxy &node)
+{
+    // format: vless://uuid@host:port?type=tcp&encryption=none&security=reality&flow=xxx&pbk=xxx&sid=xxx&sni=xxx&fp=chrome&spx=/&serviceName=xxx&path=/xxx&host=xxx#remark
+    std::string server, port, id, addition, group, remark;
+    std::string security, flow, net, host, path, sni, fingerprint, pbk, sid, spx, serviceName;
+    tribool tfo, scv;
+
+    vless.erase(0, 8); // remove "vless://"
+    string_size pos = vless.rfind('#');
+    if(pos != std::string::npos)
+    {
+        remark = urlDecode(vless.substr(pos + 1));
+        vless.erase(pos);
+    }
+    pos = vless.find('?');
+    if(pos != std::string::npos)
+    {
+        addition = vless.substr(pos + 1);
+        vless.erase(pos);
+    }
+
+    if(regGetMatch(vless, "(.*?)@(.*):(.*)", 4, 0, &id, &server, &port))
+        return;
+    if(port == "0" || id.empty())
+        return;
+
+    net = getUrlArg(addition, "type");
+    if(net.empty()) net = "tcp";
+    security = getUrlArg(addition, "security");
+    flow = getUrlArg(addition, "flow");
+    sni = getUrlArg(addition, "sni");
+    if(sni.empty()) sni = getUrlArg(addition, "peer");
+    fingerprint = getUrlArg(addition, "fp");
+    pbk = getUrlArg(addition, "pbk");
+    sid = getUrlArg(addition, "sid");
+    spx = getUrlArg(addition, "spx");
+    if(!spx.empty() && spx.find('%') != std::string::npos)
+        spx = urlDecode(spx);
+    host = getUrlArg(addition, "host");
+    path = getUrlArg(addition, "path");
+    if(!path.empty() && path.find('%') != std::string::npos)
+        path = urlDecode(path);
+    serviceName = getUrlArg(addition, "serviceName");
+    tfo = getUrlArg(addition, "tfo");
+    scv = getUrlArg(addition, "allowInsecure");
+    group = urlDecode(getUrlArg(addition, "group"));
+
+    if(remark.empty())
+        remark = server + ":" + port;
+    if(group.empty())
+        group = VLESS_DEFAULT_GROUP;
+
+    vlessConstruct(node, group, remark, server, port, id, getUrlArg(addition, "encryption"), net, security, flow, path, host, sni, fingerprint, pbk, sid, spx, serviceName, tribool(), tfo, scv);
+}
+
 void explodeQuan(const std::string &quan, Proxy &node)
 {
     std::string strTemp, itemName, itemVal;
@@ -1293,6 +1369,49 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes)
 
             trojanConstruct(node, group, ps, server, port, password, net, host, path, true, udp, tfo, scv, tribool(),  underlying_proxy);
             break;
+        case "vless"_hash:
+        {
+            group = VLESS_DEFAULT_GROUP;
+            std::string vless_id, vless_cipher, vless_flow, vless_security, vless_sni, vless_fp, vless_pbk, vless_sid, vless_spx, vless_serviceName;
+            singleproxy["uuid"] >>= vless_id;
+            singleproxy["cipher"] >>= vless_cipher;
+            if(vless_cipher.empty()) singleproxy["encryption"] >>= vless_cipher;
+            singleproxy["flow"] >>= vless_flow;
+            net = singleproxy["network"].IsDefined() ? safe_as<std::string>(singleproxy["network"]) : "tcp";
+            singleproxy["servername"] >>= vless_sni;
+            if(vless_sni.empty()) singleproxy["sni"] >>= vless_sni;
+            singleproxy["client-fingerprint"] >>= vless_fp;
+            vless_security = "tls";
+            if(singleproxy["reality-opts"].IsDefined())
+            {
+                vless_security = "reality";
+                singleproxy["reality-opts"]["public-key"] >>= vless_pbk;
+                singleproxy["reality-opts"]["short-id"] >>= vless_sid;
+            }
+            switch(hash_(net))
+            {
+            case "ws"_hash:
+                singleproxy["ws-opts"]["path"] >>= path;
+                singleproxy["ws-opts"]["headers"]["Host"] >>= host;
+                break;
+            case "grpc"_hash:
+                singleproxy["grpc-opts"]["grpc-service-name"] >>= vless_serviceName;
+                break;
+            case "h2"_hash:
+                singleproxy["h2-opts"]["path"] >>= path;
+                singleproxy["h2-opts"]["host"][0] >>= host;
+                break;
+            default:
+                net = "tcp";
+                break;
+            }
+            tls = safe_as<std::string>(singleproxy["tls"]);
+            if(tls != "true" && vless_security != "reality")
+                vless_security = "";
+
+            vlessConstruct(node, group, ps, server, port, vless_id, vless_cipher, net, vless_security, vless_flow, path, host, vless_sni, vless_fp, vless_pbk, vless_sid, vless_spx, vless_serviceName, udp, tfo, scv, underlying_proxy);
+            break;
+        }
         case "snell"_hash:
             group = SNELL_DEFAULT_GROUP;
             singleproxy["psk"] >> password;
@@ -2461,6 +2580,8 @@ void explode(const std::string &link, Proxy &node)
         explodeNetch(link, node);
     else if(startsWith(link, "trojan://"))
         explodeTrojan(link, node);
+    else if(startsWith(link, "vless://"))
+        explodeVless(link, node);
     else if (strFind(link, "hysteria2://") || strFind(link, "hy2://"))
         explodeHysteria2(link, node);
     else if(isLink(link))

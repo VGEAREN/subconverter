@@ -895,7 +895,7 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
         break;
     case "mixed"_hash:
         writeLog(0, "Generate target: Standard Subscription", LOG_LEVEL_INFO);
-        output_content = proxyToSingle(nodes, 15, ext);
+        output_content = proxyToSingle(nodes, 31, ext);
         if(argUpload)
             uploadGist("sub", argUploadPath, output_content, false);
         break;
