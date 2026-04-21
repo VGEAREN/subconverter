@@ -23,7 +23,8 @@ enum class ProxyType
     SOCKS5,
     WireGuard,
     Hysteria,
-    Hysteria2
+    Hysteria2,
+    AnyTLS
 };
 
 inline String getProxyTypeName(ProxyType type)
@@ -54,6 +55,8 @@ inline String getProxyTypeName(ProxyType type)
         return "Hysteria";
     case ProxyType::Hysteria2:
         return "Hysteria2";
+    case ProxyType::AnyTLS:
+        return "AnyTLS";
     default:
         return "Unknown";
     }
@@ -136,6 +139,10 @@ struct Proxy
     String RealityShortId;
     String RealitySpiderX;
     String GRPCServiceName;
+
+    uint32_t IdleSessionCheckInterval = 0;
+    uint32_t IdleSessionTimeout = 0;
+    uint32_t MinIdleSession = 0;
 };
 
 #define SS_DEFAULT_GROUP "SSProvider"
@@ -149,5 +156,6 @@ struct Proxy
 #define HYSTERIA_DEFAULT_GROUP "HysteriaProvider"
 #define HYSTERIA2_DEFAULT_GROUP "Hysteria2Provider"
 #define VLESS_DEFAULT_GROUP "VlessProvider"
+#define ANYTLS_DEFAULT_GROUP "AnyTLSProvider"
 
 #endif // PROXY_H_INCLUDED

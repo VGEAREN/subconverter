@@ -129,6 +129,20 @@ void vlessConstruct(Proxy &node, const std::string &group, const std::string &re
     }
 }
 
+void anytlsConstruct(Proxy &node, const std::string &group, const std::string &remarks, const std::string &server, const std::string &port, const std::string &password, const std::string &sni, const std::string &fingerprint, const string_array &alpn, uint32_t idleSessionCheckInterval, uint32_t idleSessionTimeout, uint32_t minIdleSession, tribool udp, tribool tfo, tribool scv, const std::string &underlying_proxy)
+{
+    commonConstruct(node, ProxyType::AnyTLS, group, remarks, server, port, udp, tfo, scv, tribool(), underlying_proxy);
+    node.Password = password;
+    node.ServerName = sni;
+    node.Fingerprint = fingerprint;
+    node.TLSSecure = true;
+    if(!alpn.empty())
+        node.Alpn = alpn;
+    node.IdleSessionCheckInterval = idleSessionCheckInterval;
+    node.IdleSessionTimeout = idleSessionTimeout;
+    node.MinIdleSession = minIdleSession;
+}
+
 void snellConstruct(Proxy &node, const std::string &group, const std::string &remarks, const std::string &server, const std::string &port, const std::string &password, const std::string &obfs, const std::string &host, uint16_t version, tribool udp, tribool tfo, tribool scv, const std::string& underlying_proxy)
 {
     commonConstruct(node, ProxyType::Snell, group, remarks, server, port, udp, tfo, scv, tribool(), underlying_proxy);
@@ -998,6 +1012,69 @@ void explodeVless(std::string vless, Proxy &node)
     vlessConstruct(node, group, remark, server, port, id, getUrlArg(addition, "encryption"), net, security, flow, path, host, sni, fingerprint, pbk, sid, spx, serviceName, tribool(), tfo, scv);
 }
 
+void explodeAnyTLS(std::string anytls, Proxy &node)
+{
+    // format: anytls://<password>@<host>:<port>?sni=xxx&insecure=1&alpn=h2,http/1.1&fp=chrome#remark
+    std::string server, port, password, addition, group, remark;
+    std::string sni, fingerprint, alpn_str;
+    string_array alpn;
+    tribool tfo, scv, udp;
+
+    anytls.erase(0, 9); // remove "anytls://"
+    string_size pos = anytls.rfind('#');
+    if(pos != std::string::npos)
+    {
+        remark = urlDecode(anytls.substr(pos + 1));
+        anytls.erase(pos);
+    }
+    pos = anytls.find('?');
+    if(pos != std::string::npos)
+    {
+        addition = anytls.substr(pos + 1);
+        anytls.erase(pos);
+    }
+
+    if(regGetMatch(anytls, "(.*?)@(.*):(.*)", 4, 0, &password, &server, &port))
+        return;
+    if(port == "0" || password.empty())
+        return;
+    password = urlDecode(password);
+
+    sni = getUrlArg(addition, "sni");
+    if(sni.empty()) sni = getUrlArg(addition, "peer");
+    fingerprint = getUrlArg(addition, "fp");
+    if(fingerprint.empty()) fingerprint = getUrlArg(addition, "client-fingerprint");
+    alpn_str = getUrlArg(addition, "alpn");
+    if(!alpn_str.empty())
+    {
+        if(alpn_str.find('%') != std::string::npos)
+            alpn_str = urlDecode(alpn_str);
+        for(auto &item : split(alpn_str, ","))
+        {
+            std::string trimmed = trim(item);
+            if(!trimmed.empty())
+                alpn.emplace_back(trimmed);
+        }
+    }
+    std::string idleCheck = getUrlArg(addition, "idle-session-check-interval");
+    std::string idleTimeout = getUrlArg(addition, "idle-session-timeout");
+    std::string minIdle = getUrlArg(addition, "min-idle-session");
+    tfo = getUrlArg(addition, "tfo");
+    scv = getUrlArg(addition, "insecure");
+    if(scv.is_undef()) scv = getUrlArg(addition, "allowInsecure");
+    udp = getUrlArg(addition, "udp");
+    group = urlDecode(getUrlArg(addition, "group"));
+
+    if(remark.empty())
+        remark = server + ":" + port;
+    if(group.empty())
+        group = ANYTLS_DEFAULT_GROUP;
+
+    anytlsConstruct(node, group, remark, server, port, password, sni, fingerprint, alpn,
+                    to_int(idleCheck, 0), to_int(idleTimeout, 0), to_int(minIdle, 0),
+                    udp, tfo, scv);
+}
+
 void explodeQuan(const std::string &quan, Proxy &node)
 {
     std::string strTemp, itemName, itemVal;
@@ -1410,6 +1487,36 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes)
                 vless_security = "";
 
             vlessConstruct(node, group, ps, server, port, vless_id, vless_cipher, net, vless_security, vless_flow, path, host, vless_sni, vless_fp, vless_pbk, vless_sid, vless_spx, vless_serviceName, udp, tfo, scv, underlying_proxy);
+            break;
+        }
+        case "anytls"_hash:
+        {
+            group = ANYTLS_DEFAULT_GROUP;
+            std::string anytls_pwd, anytls_sni, anytls_fp;
+            string_array anytls_alpn;
+            uint32_t idle_check = 0, idle_timeout = 0, min_idle = 0;
+            singleproxy["password"] >>= anytls_pwd;
+            singleproxy["sni"] >>= anytls_sni;
+            if(anytls_sni.empty()) singleproxy["servername"] >>= anytls_sni;
+            singleproxy["client-fingerprint"] >>= anytls_fp;
+            if(anytls_fp.empty()) singleproxy["fingerprint"] >>= anytls_fp;
+            if(singleproxy["alpn"].IsDefined() && singleproxy["alpn"].IsSequence())
+            {
+                for(size_t i = 0; i < singleproxy["alpn"].size(); i++)
+                {
+                    std::string item = safe_as<std::string>(singleproxy["alpn"][i]);
+                    if(!item.empty()) anytls_alpn.emplace_back(item);
+                }
+            }
+            if(singleproxy["idle-session-check-interval"].IsDefined())
+                idle_check = safe_as<uint32_t>(singleproxy["idle-session-check-interval"]);
+            if(singleproxy["idle-session-timeout"].IsDefined())
+                idle_timeout = safe_as<uint32_t>(singleproxy["idle-session-timeout"]);
+            if(singleproxy["min-idle-session"].IsDefined())
+                min_idle = safe_as<uint32_t>(singleproxy["min-idle-session"]);
+
+            anytlsConstruct(node, group, ps, server, port, anytls_pwd, anytls_sni, anytls_fp, anytls_alpn,
+                            idle_check, idle_timeout, min_idle, udp, tfo, scv, underlying_proxy);
             break;
         }
         case "snell"_hash:
@@ -2582,6 +2689,8 @@ void explode(const std::string &link, Proxy &node)
         explodeTrojan(link, node);
     else if(startsWith(link, "vless://"))
         explodeVless(link, node);
+    else if(startsWith(link, "anytls://"))
+        explodeAnyTLS(link, node);
     else if (strFind(link, "hysteria2://") || strFind(link, "hy2://"))
         explodeHysteria2(link, node);
     else if(isLink(link))

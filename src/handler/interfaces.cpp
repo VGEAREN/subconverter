@@ -1951,7 +1951,7 @@ static std::string cleanFetch(const std::string &url)
 
 static int countNodes(const std::string &content)
 {
-    const std::string prefixes[] = {"ss://", "ssr://", "vmess://", "vmess1://", "vless://", "trojan://", "hysteria2://", "hy2://", "socks://", "Netch://"};
+    const std::string prefixes[] = {"ss://", "ssr://", "vmess://", "vmess1://", "vless://", "trojan://", "hysteria2://", "hy2://", "anytls://", "socks://", "Netch://"};
     int count = 0;
 
     // Try base64 decode first

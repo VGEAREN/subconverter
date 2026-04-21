@@ -499,6 +499,26 @@ void proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGr
                 continue;
             }
             break;
+        case ProxyType::AnyTLS:
+            singleproxy["type"] = "anytls";
+            singleproxy["password"] = x.Password;
+            if(std::all_of(x.Password.begin(), x.Password.end(), ::isdigit) && !x.Password.empty())
+                singleproxy["password"].SetTag("str");
+            if(!x.ServerName.empty())
+                singleproxy["sni"] = x.ServerName;
+            if(!scv.is_undef())
+                singleproxy["skip-cert-verify"] = scv.get();
+            if(!x.Fingerprint.empty())
+                singleproxy["client-fingerprint"] = x.Fingerprint;
+            if(!x.Alpn.empty())
+                singleproxy["alpn"] = x.Alpn;
+            if(x.IdleSessionCheckInterval)
+                singleproxy["idle-session-check-interval"] = x.IdleSessionCheckInterval;
+            if(x.IdleSessionTimeout)
+                singleproxy["idle-session-timeout"] = x.IdleSessionTimeout;
+            if(x.MinIdleSession)
+                singleproxy["min-idle-session"] = x.MinIdleSession;
+            break;
         case ProxyType::Snell:
             if (x.SnellVersion >= 4)
                 continue;
