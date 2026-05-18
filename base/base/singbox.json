@@ -30,15 +30,6 @@
                 "tag": "dns_fakeip",
                 "inet4_range": "198.18.0.0/15",
                 "inet6_range": "fc00::/18"
-            },
-            {
-                "type": "predefined",
-                "tag": "block",
-                "responses": [
-                    {
-                        "rcode": "NXDOMAIN"
-                    }
-                ]
             }
         ],
         "rules": [
@@ -50,8 +41,8 @@
                 "rule_set": [
                     "geosite-category-ads-all"
                 ],
-                "server": "block",
-                "disable_cache": true
+                "action": "predefined",
+                "rcode": "NXDOMAIN"
             },
             {
                 "rule_set": [

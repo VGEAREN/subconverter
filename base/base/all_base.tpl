@@ -302,15 +302,6 @@ enhanced-mode-by-rule = true
                 {% if default(request.singbox.ipv6, "") == "1" %}
                 ,"inet6_range": "fc00::\/18"
                 {% endif %}
-            },
-            {
-                "type": "predefined",
-                "tag": "block",
-                "responses": [
-                    {
-                        "rcode": "NXDOMAIN"
-                    }
-                ]
             }
         ],
         "rules": [
@@ -322,8 +313,8 @@ enhanced-mode-by-rule = true
                 "rule_set": [
                     "geosite-category-ads-all"
                 ],
-                "server": "block",
-                "disable_cache": true
+                "action": "predefined",
+                "rcode": "NXDOMAIN"
             },
             {
                 "rule_set": [
