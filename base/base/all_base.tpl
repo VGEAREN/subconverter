@@ -279,8 +279,7 @@ enhanced-mode-by-rule = true
             {
                 "type": "udp",
                 "tag": "dns_resolver",
-                "server": "223.5.5.5",
-                "detour": "DIRECT"
+                "server": "223.5.5.5"
             },
             {
                 "type": "tls",
@@ -292,8 +291,7 @@ enhanced-mode-by-rule = true
                 "type": "h3",
                 "tag": "dns_direct",
                 "server": "dns.alidns.com",
-                "domain_resolver": "dns_resolver",
-                "detour": "DIRECT"
+                "domain_resolver": "dns_resolver"
             },
             {
                 "type": "fakeip",
@@ -340,8 +338,7 @@ enhanced-mode-by-rule = true
         "enabled": true,
         "server": "time.apple.com",
         "server_port": 123,
-        "interval": "30m",
-        "detour": "DIRECT"
+        "interval": "30m"
     },
     "inbounds": [
         {
