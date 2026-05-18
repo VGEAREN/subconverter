@@ -304,10 +304,6 @@ enhanced-mode-by-rule = true
         ],
         "rules": [
             {
-                "outbound": "any",
-                "server": "dns_resolver"
-            },
-            {
                 "rule_set": [
                     "geosite-category-ads-all"
                 ],
@@ -367,6 +363,9 @@ enhanced-mode-by-rule = true
     ],
     "outbounds": [],
     "route": {
+        "default_domain_resolver": {
+            "server": "dns_resolver"
+        },
         "rules": [],
         "rule_set": [
             {

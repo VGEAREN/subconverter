@@ -32,10 +32,6 @@
         ],
         "rules": [
             {
-                "outbound": "any",
-                "server": "dns_resolver"
-            },
-            {
                 "rule_set": [
                     "geosite-category-ads-all"
                 ],
@@ -89,6 +85,9 @@
     ],
     "outbounds": [],
     "route": {
+        "default_domain_resolver": {
+            "server": "dns_resolver"
+        },
         "rules": [],
         "rule_set": [
             {
