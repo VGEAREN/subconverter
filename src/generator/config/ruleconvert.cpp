@@ -491,7 +491,10 @@ static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &ar
     }
     else if (type == "geoip" || type == "geosite")
     {
-        std::string tag = type + "-" + value;
+        std::string code = value;
+        if (type == "geoip" && code == "lan")
+            code = "private";
+        std::string tag = type + "-" + code;
         referenced_rule_sets.insert(tag);
         rule_obj.AddMember("rule_set", rapidjson::Value(tag.c_str(), tag.size(), allocator), allocator);
         rule_obj.AddMember("outbound", rapidjson::Value(group.c_str(), allocator), allocator);
@@ -524,7 +527,10 @@ static void appendSingBoxRule(std::vector<std::string_view> &args, rapidjson::Va
 
     if (realType == "geoip" || realType == "geosite")
     {
-        std::string tag = realType + "-" + value;
+        std::string code = value;
+        if (realType == "geoip" && code == "lan")
+            code = "private";
+        std::string tag = realType + "-" + code;
         referenced_rule_sets.insert(tag);
         rules | AppendToArray("rule_set", rapidjson::Value(tag.c_str(), tag.size(), allocator), allocator);
     }
@@ -619,8 +625,7 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
 
     rapidjson::Value rule_sets(rapidjson::kArrayType);
     std::set<std::string> existing_rule_set_tags;
-    if (!overwrite_original_rules
-        && base_rule["route"].HasMember("rule_set")
+    if (base_rule["route"].HasMember("rule_set")
         && base_rule["route"]["rule_set"].IsArray())
     {
         rule_sets.Swap(base_rule["route"]["rule_set"]);
