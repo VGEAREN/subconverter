@@ -1,3 +1,4 @@
+#include <set>
 #include <string>
 
 #include "handler/settings.h"
@@ -470,7 +471,7 @@ void rulesetToSurge(INIReader &base_rule, std::vector<RulesetContent> &ruleset_c
     }
 }
 
-static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &args, const std::string& rule, const std::string &group, rapidjson::MemoryPoolAllocator<>& allocator)
+static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &args, const std::string& rule, const std::string &group, rapidjson::MemoryPoolAllocator<>& allocator, std::set<std::string> &referenced_rule_sets)
 {
     args.clear();
     split(args, rule, ',');
@@ -488,6 +489,13 @@ static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &ar
     {
         rule_obj.AddMember("outbound", rapidjson::Value(value.data(), value.size(), allocator), allocator);
     }
+    else if (type == "geoip" || type == "geosite")
+    {
+        std::string tag = type + "-" + value;
+        referenced_rule_sets.insert(tag);
+        rule_obj.AddMember("rule_set", rapidjson::Value(tag.c_str(), tag.size(), allocator), allocator);
+        rule_obj.AddMember("outbound", rapidjson::Value(group.c_str(), allocator), allocator);
+    }
     else
     {
         rule_obj.AddMember(rapidjson::Value(type.c_str(), allocator), rapidjson::Value(value.data(), value.size(), allocator), allocator);
@@ -496,7 +504,7 @@ static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &ar
     return rule_obj;
 }
 
-static void appendSingBoxRule(std::vector<std::string_view> &args, rapidjson::Value &rules, const std::string& rule, rapidjson::MemoryPoolAllocator<>& allocator)
+static void appendSingBoxRule(std::vector<std::string_view> &args, rapidjson::Value &rules, const std::string& rule, rapidjson::MemoryPoolAllocator<>& allocator, std::set<std::string> &referenced_rule_sets)
 {
     using namespace rapidjson_ext;
     args.clear();
@@ -514,7 +522,16 @@ static void appendSingBoxRule(std::vector<std::string_view> &args, rapidjson::Va
     realType = replaceAllDistinct(realType, "-", "_");
     realType = replaceAllDistinct(realType, "ip_cidr6", "ip_cidr");
 
-    rules | AppendToArray(realType.c_str(), rapidjson::Value(value.c_str(), value.size(), allocator), allocator);
+    if (realType == "geoip" || realType == "geosite")
+    {
+        std::string tag = realType + "-" + value;
+        referenced_rule_sets.insert(tag);
+        rules | AppendToArray("rule_set", rapidjson::Value(tag.c_str(), tag.size(), allocator), allocator);
+    }
+    else
+    {
+        rules | AppendToArray(realType.c_str(), rapidjson::Value(value.c_str(), value.size(), allocator), allocator);
+    }
 }
 
 void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent> &ruleset_content_array, bool overwrite_original_rules)
@@ -524,6 +541,7 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
     std::stringstream strStrm;
     size_t total_rules = 0;
     auto &allocator = base_rule.GetAllocator();
+    std::set<std::string> referenced_rule_sets;
 
     rapidjson::Value rules(rapidjson::kArrayType);
     if (!overwrite_original_rules)
@@ -563,7 +581,7 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
                 final = rule_group;
                 continue;
             }
-            rules.PushBack(transformRuleToSingBox(temp, strLine, rule_group, allocator), allocator);
+            rules.PushBack(transformRuleToSingBox(temp, strLine, rule_group, allocator, referenced_rule_sets), allocator);
             total_rules++;
             continue;
         }
@@ -589,7 +607,7 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
                 strLine.erase(strLine.find("//"));
                 strLine = trimWhitespace(strLine);
             }
-            appendSingBoxRule(temp, rule, strLine, allocator);
+            appendSingBoxRule(temp, rule, strLine, allocator, referenced_rule_sets);
         }
         if (rule.ObjectEmpty()) continue;
         rule.AddMember("outbound", rapidjson::Value(rule_group.c_str(), allocator), allocator);
@@ -599,8 +617,43 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
     if (!base_rule.HasMember("route"))
         base_rule.AddMember("route", rapidjson::Value(rapidjson::kObjectType), allocator);
 
+    rapidjson::Value rule_sets(rapidjson::kArrayType);
+    std::set<std::string> existing_rule_set_tags;
+    if (!overwrite_original_rules
+        && base_rule["route"].HasMember("rule_set")
+        && base_rule["route"]["rule_set"].IsArray())
+    {
+        rule_sets.Swap(base_rule["route"]["rule_set"]);
+        for (const auto &rs : rule_sets.GetArray())
+        {
+            if (rs.IsObject() && rs.HasMember("tag") && rs["tag"].IsString())
+                existing_rule_set_tags.insert(rs["tag"].GetString());
+        }
+    }
+
+    for (const std::string &tag : referenced_rule_sets)
+    {
+        if (existing_rule_set_tags.count(tag))
+            continue;
+        auto dash = tag.find('-');
+        if (dash == std::string::npos)
+            continue;
+        std::string kind = tag.substr(0, dash);
+        std::string code = tag.substr(dash + 1);
+        std::string url = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/"
+                          + kind + "/" + code + ".srs";
+        rapidjson::Value rs(rapidjson::kObjectType);
+        rs.AddMember("tag", rapidjson::Value(tag.c_str(), tag.size(), allocator), allocator);
+        rs.AddMember("type", "remote", allocator);
+        rs.AddMember("format", "binary", allocator);
+        rs.AddMember("url", rapidjson::Value(url.c_str(), url.size(), allocator), allocator);
+        rs.AddMember("download_detour", "DIRECT", allocator);
+        rule_sets.PushBack(rs, allocator);
+    }
+
     auto finalValue = rapidjson::Value(final.c_str(), allocator);
     base_rule["route"]
     | AddMemberOrReplace("rules", rules, allocator)
+    | AddMemberOrReplace("rule_set", rule_sets, allocator)
     | AddMemberOrReplace("final", finalValue, allocator);
 }
