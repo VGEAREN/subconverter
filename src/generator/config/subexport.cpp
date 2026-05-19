@@ -2388,6 +2388,15 @@ void proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json, std::v
     {
         auto direct = buildObject(allocator, "type", "direct", "tag", "DIRECT");
         outbounds.PushBack(direct, allocator);
+        // Keep the legacy type:"block" REJECT outbound. selector groups
+        // defined as `[]REJECT` in upstream ACL4SSR templates list "REJECT"
+        // as a member tag, so removing this outbound would dangle every such
+        // group. type:"block" was deprecated in sing-box 1.11 but is still
+        // accepted in 1.13; revisit when 1.14 actually removes it (will
+        // require restructuring ad-blocking groups to use action:reject
+        // route rules instead of selector members).
+        auto reject = buildObject(allocator, "type", "block", "tag", "REJECT");
+        outbounds.PushBack(reject, allocator);
     }
 
     for (Proxy &x : nodes)
