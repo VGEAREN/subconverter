@@ -471,6 +471,17 @@ void rulesetToSurge(INIReader &base_rule, std::vector<RulesetContent> &ruleset_c
     }
 }
 
+static void setSingBoxRuleTarget(rapidjson::Value &rule_obj, const std::string &target, rapidjson::MemoryPoolAllocator<> &allocator)
+{
+    // REJECT used to be a type:block outbound (deprecated in sing-box 1.11,
+    // removed in 1.14); emit action:reject instead so rules don't need to
+    // reference an outbound at all.
+    if (target == "REJECT")
+        rule_obj.AddMember("action", "reject", allocator);
+    else
+        rule_obj.AddMember("outbound", rapidjson::Value(target.c_str(), target.size(), allocator), allocator);
+}
+
 static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &args, const std::string& rule, const std::string &group, rapidjson::MemoryPoolAllocator<>& allocator, std::set<std::string> &referenced_rule_sets)
 {
     args.clear();
@@ -487,7 +498,7 @@ static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &ar
     type = replaceAllDistinct(type, "src_", "source_");
     if (type == "match" || type == "final")
     {
-        rule_obj.AddMember("outbound", rapidjson::Value(value.data(), value.size(), allocator), allocator);
+        setSingBoxRuleTarget(rule_obj, value, allocator);
     }
     else if (type == "geoip" || type == "geosite")
     {
@@ -497,12 +508,12 @@ static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &ar
         std::string tag = type + "-" + code;
         referenced_rule_sets.insert(tag);
         rule_obj.AddMember("rule_set", rapidjson::Value(tag.c_str(), tag.size(), allocator), allocator);
-        rule_obj.AddMember("outbound", rapidjson::Value(group.c_str(), allocator), allocator);
+        setSingBoxRuleTarget(rule_obj, group, allocator);
     }
     else
     {
         rule_obj.AddMember(rapidjson::Value(type.c_str(), allocator), rapidjson::Value(value.data(), value.size(), allocator), allocator);
-        rule_obj.AddMember("outbound", rapidjson::Value(group.c_str(), allocator), allocator);
+        setSingBoxRuleTarget(rule_obj, group, allocator);
     }
     return rule_obj;
 }
@@ -618,7 +629,7 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
             appendSingBoxRule(temp, rule, strLine, allocator, referenced_rule_sets);
         }
         if (rule.ObjectEmpty()) continue;
-        rule.AddMember("outbound", rapidjson::Value(rule_group.c_str(), allocator), allocator);
+        setSingBoxRuleTarget(rule, rule_group, allocator);
         rules.PushBack(rule, allocator);
     }
 
