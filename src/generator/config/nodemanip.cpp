@@ -465,8 +465,41 @@ std::string addEmoji(const Proxy &node, const RegexMatchConfigs &emoji_array, ex
     return node.Remark;
 }
 
+// True when server is a literal IPv4 address inside an unroutable / bogon
+// range that can't be a real proxy endpoint. Subscription sources sometimes
+// pack ad / notice strings into fake nodes with server=192.168.1.1 and a
+// random port; if those land in a url-test group they look unbeatably fast
+// (LAN ping) and poison the selection. Filter them out at ingest.
+static bool isBogonIPv4Server(const std::string &server)
+{
+    unsigned int b0, b1, b2, b3;
+    if (std::sscanf(server.c_str(), "%u.%u.%u.%u", &b0, &b1, &b2, &b3) != 4)
+        return false;
+    if (b0 > 255 || b1 > 255 || b2 > 255 || b3 > 255)
+        return false;
+    if (b0 == 0) return true;                                    // 0.0.0.0/8
+    if (b0 == 10) return true;                                   // 10.0.0.0/8
+    if (b0 == 127) return true;                                  // loopback
+    if (b0 == 169 && b1 == 254) return true;                     // link-local
+    if (b0 == 172 && b1 >= 16 && b1 <= 31) return true;          // 172.16/12
+    if (b0 == 192 && b1 == 168) return true;                     // 192.168/16
+    if (b0 == 100 && b1 >= 64 && b1 <= 127) return true;         // CGNAT
+    if (b0 >= 224) return true;                                  // multicast / reserved
+    return false;
+}
+
 void preprocessNodes(std::vector<Proxy> &nodes, extra_settings &ext)
 {
+    auto bogon_first = std::stable_partition(nodes.begin(), nodes.end(),
+        [](const Proxy &p) { return !isBogonIPv4Server(p.Hostname); });
+    if (bogon_first != nodes.end())
+    {
+        for (auto it = bogon_first; it != nodes.end(); ++it)
+            writeLog(0, "Dropping bogon-server node: " + it->Remark + " (" + it->Hostname + ")",
+                     LOG_LEVEL_INFO);
+        nodes.erase(bogon_first, nodes.end());
+    }
+
     std::for_each(nodes.begin(), nodes.end(), [&ext](Proxy &x)
     {
         if(ext.remove_emoji)
