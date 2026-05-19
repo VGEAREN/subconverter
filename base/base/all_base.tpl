@@ -365,7 +365,7 @@ enhanced-mode-by-rule = true
     "outbounds": [],
     "route": {
         "default_domain_resolver": {
-            "server": "dns_resolver"
+            "server": "dns_proxy"
         },
         "rules": [],
         "rule_set": [
