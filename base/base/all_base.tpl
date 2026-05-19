@@ -279,7 +279,8 @@ enhanced-mode-by-rule = true
             {
                 "type": "udp",
                 "tag": "dns_resolver",
-                "server": "223.5.5.5"
+                "server": "223.5.5.5",
+                "network_strategy": "default"
             },
             {
                 "type": "tls",
