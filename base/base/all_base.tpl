@@ -283,7 +283,7 @@ enhanced-mode-by-rule = true
                 "network_strategy": "default"
             },
             {
-                "type": "tls",
+                "type": "https",
                 "tag": "dns_proxy",
                 "server": "1.1.1.1",
                 "domain_resolver": "dns_resolver"
