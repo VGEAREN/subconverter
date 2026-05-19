@@ -471,18 +471,36 @@ void rulesetToSurge(INIReader &base_rule, std::vector<RulesetContent> &ruleset_c
     }
 }
 
-static void setSingBoxRuleTarget(rapidjson::Value &rule_obj, const std::string &target, rapidjson::MemoryPoolAllocator<> &allocator)
+static void setSingBoxRuleTarget(rapidjson::Value &rule_obj, const std::string &target, rapidjson::MemoryPoolAllocator<> &allocator, const std::set<std::string> &reject_groups = {})
 {
     // REJECT used to be a type:block outbound (deprecated in sing-box 1.11,
     // removed in 1.14); emit action:reject instead so rules don't need to
-    // reference an outbound at all.
-    if (target == "REJECT")
+    // reference an outbound at all. Same treatment for any selector group
+    // whose first member is REJECT (ad-block / app-purify in ACL4SSR).
+    if (target == "REJECT" || reject_groups.count(target))
         rule_obj.AddMember("action", "reject", allocator);
     else
         rule_obj.AddMember("outbound", rapidjson::Value(target.c_str(), target.size(), allocator), allocator);
 }
 
-static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &args, const std::string& rule, const std::string &group, rapidjson::MemoryPoolAllocator<>& allocator, std::set<std::string> &referenced_rule_sets)
+std::set<std::string> findSingBoxRejectGroups(const ProxyGroupConfigs &groups)
+{
+    std::set<std::string> result;
+    for (const auto &g : groups)
+    {
+        if (g.Type != ProxyGroupType::Select)
+            continue;
+        if (g.Proxies.empty())
+            continue;
+        // INI references members as "[]REJECT"; the parser keeps the prefix.
+        const std::string &first = g.Proxies.front();
+        if (first == "[]REJECT" || first == "REJECT")
+            result.insert(g.Name);
+    }
+    return result;
+}
+
+static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &args, const std::string& rule, const std::string &group, rapidjson::MemoryPoolAllocator<>& allocator, std::set<std::string> &referenced_rule_sets, const std::set<std::string> &reject_groups)
 {
     args.clear();
     split(args, rule, ',');
@@ -498,7 +516,7 @@ static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &ar
     type = replaceAllDistinct(type, "src_", "source_");
     if (type == "match" || type == "final")
     {
-        setSingBoxRuleTarget(rule_obj, value, allocator);
+        setSingBoxRuleTarget(rule_obj, value, allocator, reject_groups);
     }
     else if (type == "geoip" || type == "geosite")
     {
@@ -508,12 +526,12 @@ static rapidjson::Value transformRuleToSingBox(std::vector<std::string_view> &ar
         std::string tag = type + "-" + code;
         referenced_rule_sets.insert(tag);
         rule_obj.AddMember("rule_set", rapidjson::Value(tag.c_str(), tag.size(), allocator), allocator);
-        setSingBoxRuleTarget(rule_obj, group, allocator);
+        setSingBoxRuleTarget(rule_obj, group, allocator, reject_groups);
     }
     else
     {
         rule_obj.AddMember(rapidjson::Value(type.c_str(), allocator), rapidjson::Value(value.data(), value.size(), allocator), allocator);
-        setSingBoxRuleTarget(rule_obj, group, allocator);
+        setSingBoxRuleTarget(rule_obj, group, allocator, reject_groups);
     }
     return rule_obj;
 }
@@ -551,7 +569,7 @@ static void appendSingBoxRule(std::vector<std::string_view> &args, rapidjson::Va
     }
 }
 
-void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent> &ruleset_content_array, bool overwrite_original_rules)
+void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent> &ruleset_content_array, bool overwrite_original_rules, const std::set<std::string> &reject_groups)
 {
     using namespace rapidjson_ext;
     std::string rule_group, retrieved_rules, strLine, final;
@@ -600,7 +618,7 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
                 final = rule_group;
                 continue;
             }
-            rules.PushBack(transformRuleToSingBox(temp, strLine, rule_group, allocator, referenced_rule_sets), allocator);
+            rules.PushBack(transformRuleToSingBox(temp, strLine, rule_group, allocator, referenced_rule_sets, reject_groups), allocator);
             total_rules++;
             continue;
         }
@@ -629,7 +647,7 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
             appendSingBoxRule(temp, rule, strLine, allocator, referenced_rule_sets);
         }
         if (rule.ObjectEmpty()) continue;
-        setSingBoxRuleTarget(rule, rule_group, allocator);
+        setSingBoxRuleTarget(rule, rule_group, allocator, reject_groups);
         rules.PushBack(rule, allocator);
     }
 

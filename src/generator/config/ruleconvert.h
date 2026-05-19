@@ -9,6 +9,9 @@
 #include <rapidjson/document.h>
 
 #include "utils/ini_reader/ini_reader.h"
+#include "config/proxygroup.h"
+
+#include <set>
 
 enum ruleset_type
 {
@@ -33,6 +36,10 @@ std::string convertRuleset(const std::string &content, int type);
 void rulesetToClash(YAML::Node &base_rule, std::vector<RulesetContent> &ruleset_content_array, bool overwrite_original_rules, bool new_field_name);
 std::string rulesetToClashStr(YAML::Node &base_rule, std::vector<RulesetContent> &ruleset_content_array, bool overwrite_original_rules, bool new_field_name);
 void rulesetToSurge(INIReader &base_rule, std::vector<RulesetContent> &ruleset_content_array, int surge_ver, bool overwrite_original_rules, const std::string& remote_path_prefix);
-void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent> &ruleset_content_array, bool overwrite_original_rules);
+// Names of selector proxy groups whose first member is "[]REJECT".
+// In Clash these toggle ad-blocking; in sing-box (which has no reject
+// outbound type) we instead fold rules pointing to them into action:reject.
+std::set<std::string> findSingBoxRejectGroups(const ProxyGroupConfigs &groups);
+void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent> &ruleset_content_array, bool overwrite_original_rules, const std::set<std::string> &reject_groups = {});
 
 #endif // RULECONVERT_H_INCLUDED

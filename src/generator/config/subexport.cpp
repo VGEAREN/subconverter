@@ -2699,8 +2699,15 @@ void proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json, std::v
         return;
     }
 
+    auto reject_groups = findSingBoxRejectGroups(extra_proxy_group);
     for (const ProxyGroupConfig &x: extra_proxy_group)
     {
+        // selector groups that exist purely to expose a REJECT/DIRECT toggle
+        // (Clash-only feature) have no sing-box analogue; we fold rules
+        // pointing at them into action:reject downstream and skip emitting
+        // the group itself here.
+        if (reject_groups.count(x.Name))
+            continue;
         string_array filtered_nodelist;
         std::string type;
         switch (x.Type)
@@ -2722,6 +2729,15 @@ void proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json, std::v
         }
         for (const auto &y : x.Proxies)
             groupGenerate(y, nodelist, filtered_nodelist, true, ext);
+        // strip references to (a) literal REJECT (no outbound exists in
+        // sing-box) and (b) any skipped reject-toggle group whose name we
+        // captured in reject_groups -- both would dangle otherwise.
+        filtered_nodelist.erase(
+            std::remove_if(filtered_nodelist.begin(), filtered_nodelist.end(),
+                           [&](const std::string &m){
+                               return m == "REJECT" || reject_groups.count(m);
+                           }),
+            filtered_nodelist.end());
 
         if (filtered_nodelist.empty())
             filtered_nodelist.emplace_back("DIRECT");
@@ -2790,7 +2806,7 @@ std::string proxyToSingBox(std::vector<Proxy> &nodes, const std::string &base_co
     if(ext.nodelist || !ext.enable_rule_generator)
         return json | SerializeObject();
 
-    rulesetToSingBox(json, ruleset_content_array, ext.overwrite_original_rules);
+    rulesetToSingBox(json, ruleset_content_array, ext.overwrite_original_rules, findSingBoxRejectGroups(extra_proxy_group));
 
     return json | SerializeObject();
 }
