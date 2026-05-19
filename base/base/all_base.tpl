@@ -283,12 +283,6 @@ enhanced-mode-by-rule = true
                 "network_strategy": "default"
             },
             {
-                "type": "https",
-                "tag": "dns_proxy",
-                "server": "1.1.1.1",
-                "domain_resolver": "dns_resolver"
-            },
-            {
                 "type": "h3",
                 "tag": "dns_direct",
                 "server": "dns.alidns.com",
@@ -320,12 +314,6 @@ enhanced-mode-by-rule = true
                     "AAAA"
                 ],
                 "server": "dns_fakeip"
-            },
-            {
-                "rule_set": [
-                    "geosite-geolocation-!cn"
-                ],
-                "server": "dns_proxy"
             }
         ],
         "final": "dns_direct",
@@ -365,7 +353,7 @@ enhanced-mode-by-rule = true
     "outbounds": [],
     "route": {
         "default_domain_resolver": {
-            "server": "dns_proxy"
+            "server": "dns_resolver"
         },
         "rules": [],
         "rule_set": [
