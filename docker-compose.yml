@@ -10,7 +10,8 @@ services:
       - ./base/custom/ACLSSR/Clash:/base/Clash
       - ./base/custom/savedconfigs:/base/custom/savedconfigs
     environment:
-      - API_ACCESS_TOKEN=${API_ACCESS_TOKEN:-}
-      - MANAGED_CONFIG_PREFIX=${MANAGED_CONFIG_PREFIX:-http://127.0.0.1:25500}
+      # main.cpp reads MANAGED_PREFIX / API_TOKEN (not the host-facing names)
+      - API_TOKEN=${API_ACCESS_TOKEN:-}
+      - MANAGED_PREFIX=${MANAGED_CONFIG_PREFIX:-http://127.0.0.1:25500}
       - CUSTOM_PAGE_PASSWORD=${CUSTOM_PAGE_PASSWORD:-}
     restart: always
