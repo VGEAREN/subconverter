@@ -175,10 +175,17 @@ int main(int argc, char *argv[])
     if(!global.updateRulesetOnRequest)
         refreshRulesets(global.customRulesets, global.rulesetsContent);
 
-    std::string env_api_mode = getEnv("API_MODE"), env_managed_prefix = getEnv("MANAGED_PREFIX"), env_token = getEnv("API_TOKEN");
+    std::string env_api_mode = getEnv("API_MODE"), env_token = getEnv("API_TOKEN");
+    // Accept both MANAGED_PREFIX (short) and MANAGED_CONFIG_PREFIX (docker-compose form)
+    std::string env_managed_prefix = getEnv("MANAGED_PREFIX");
+    if(env_managed_prefix.empty())
+        env_managed_prefix = getEnv("MANAGED_CONFIG_PREFIX");
     global.APIMode = tribool().parse(toLower(env_api_mode)).get(global.APIMode);
     if(!env_managed_prefix.empty())
         global.managedConfigPrefix = env_managed_prefix;
+    // Accept both API_TOKEN and API_ACCESS_TOKEN
+    if(env_token.empty())
+        env_token = getEnv("API_ACCESS_TOKEN");
     if(!env_token.empty())
         global.accessToken = env_token;
 
