@@ -2740,7 +2740,10 @@ void explodeSub(std::string sub, std::vector<Proxy> &nodes)
     //try to parse as normal subscription
     if(!processed)
     {
-        sub = urlSafeBase64Decode(sub);
+        //plaintext subscriptions ship node links directly; only base64-decode when the content isn't already a link list.
+        //(a real base64 blob can never contain "://" since ':' is not a base64 character, so this guard is safe)
+        if(!regFind(sub, "(vmess1?|vless|trojan|ssr|ss|hysteria2?|hy2|tuic|anytls|socks|snell|wireguard)://"))
+            sub = urlSafeBase64Decode(sub);
         if(regFind(sub, "(vmess|shadowsocks|http|trojan)\\s*?="))
         {
             if(explodeSurge(sub, nodes))
