@@ -530,17 +530,30 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
             lCustomProxyGroups.emplace_back(std::move(grp));
             validSubNames.emplace_back(trimmed);
         }
-        // Inject subscription group references into every Select-type group
-        // that references other groups via [] (e.g. 节点选择, Ai平台, 电报消息)
+        // Inject subscription group references into policy selectors only:
+        // Select groups made of [] refs (plus at most a catch-all .*) with at
+        // least one ref beyond the built-in policies (e.g. 节点选择, Ai平台).
+        // Skips groups with a narrowing regex such as region groups
+        // (香港节点 = []香港节点·自动 + (港|HK...)), where a whole-subscription
+        // group would leak other regions, and pure REJECT/DIRECT toggles.
         if(!validSubNames.empty())
         {
             for(auto &g : lCustomProxyGroups)
             {
                 if(g.Type != ProxyGroupType::Select) continue;
-                bool hasRefs = false;
+                bool hasPolicyRef = false, hasFilter = false;
                 for(const auto &p : g.Proxies)
-                    if(startsWith(p, "[]")) { hasRefs = true; break; }
-                if(!hasRefs) continue;
+                {
+                    if(startsWith(p, "[]"))
+                    {
+                        std::string ref = p.substr(2);
+                        if(ref != "DIRECT" && ref != "REJECT" && ref != "REJECT-DROP" && ref != "PASS")
+                            hasPolicyRef = true;
+                    }
+                    else if(p != ".*")
+                        hasFilter = true;
+                }
+                if(!hasPolicyRef || hasFilter) continue;
                 for(const auto &sn : validSubNames)
                     g.Proxies.emplace_back("[]" + sn);
             }
