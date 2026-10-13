@@ -1739,12 +1739,14 @@ std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
     }
 
     // URL query params can override saved config
+    bool overridden = false;
     for(auto &[key, val] : request.argument)
     {
         if(key != "id")
         {
             fakeReq.argument.erase(key);
             fakeReq.argument.emplace(key, val);
+            overridden = true;
         }
     }
 
@@ -1786,6 +1788,12 @@ std::string customSubconverter(RESPONSE_CALLBACK_ARGS)
     }
 
     std::string result = subconverter(fakeReq, response);
+
+    // The cache only holds the saved profile's own output: an overridden
+    // request (e.g. &target=singbox) may produce another format, so it must
+    // neither overwrite the cache nor be served from it.
+    if(overridden)
+        return result;
 
     // Cache successful output, serve cache on failure
     std::string cachePath = CUSTOM_DIR + id + ".cache";
