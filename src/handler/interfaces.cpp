@@ -1941,14 +1941,14 @@ std::string customDelete(RESPONSE_CALLBACK_ARGS)
 }
 
 // Fetch URL with clean curl (no SubConverter headers) to avoid being blocked
-static std::string cleanFetch(const std::string &url)
+static std::string fetchWithUserAgent(const std::string &url, const char *user_agent)
 {
     CURL *curl = curl_easy_init();
     if(!curl) return "";
 
     std::string content;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 10L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -1968,6 +1968,30 @@ static std::string cleanFetch(const std::string &url)
     if(res != CURLE_OK || http_code != 200)
         return "";
     return content;
+}
+
+static int countNodes(const std::string &content);
+
+// Providers gate subscriptions on User-Agent in opposite ways: some 404
+// proxy-client UAs (yvpn), others sit behind a WAF that 403s browsers. Try a
+// browser UA first, then a client UA; return the first response that parses
+// into nodes, else the browser one so callers report the same errors.
+static std::string cleanFetch(const std::string &url)
+{
+    static const char *const user_agents[] = {
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "v2rayN/7.10"
+    };
+    std::string first;
+    for(const char *ua : user_agents)
+    {
+        std::string content = fetchWithUserAgent(url, ua);
+        if(!content.empty() && countNodes(content) > 0)
+            return content;
+        if(ua == user_agents[0])
+            first = std::move(content);
+    }
+    return first;
 }
 
 static int countNodes(const std::string &content)
