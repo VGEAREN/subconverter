@@ -1972,10 +1972,10 @@ static std::string fetchWithUserAgent(const std::string &url, const char *user_a
 
 static int countNodes(const std::string &content);
 
-// Providers gate subscriptions on User-Agent in opposite ways: some 404
-// proxy-client UAs (yvpn), others sit behind a WAF that 403s browsers. Try a
-// browser UA first, then a client UA; return the first response that parses
-// into nodes, else the browser one so callers report the same errors.
+// Some providers sit behind a WAF that 403s browser UAs and only serves proxy
+// clients. Keep the browser UA first so providers that already work see no
+// change, then retry as a client; return the first response that parses into
+// nodes, else the browser one so callers report the same errors.
 static std::string cleanFetch(const std::string &url)
 {
     static const char *const user_agents[] = {
