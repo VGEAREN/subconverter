@@ -1954,6 +1954,10 @@ static std::string fetchWithUserAgent(const std::string &url, const char *user_a
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
+    // Ask for gzip like real clients do (FlClash, mihomo); libcurl inflates it
+    // transparently. Some providers' CDNs break uncompressed responses: they
+    // send the gzip Content-Length with the inflated body and stall at 4 KiB.
+    curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char *ptr, size_t size, size_t nmemb, void *userdata) -> size_t {
         static_cast<std::string*>(userdata)->append(ptr, size * nmemb);
         return size * nmemb;
